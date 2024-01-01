@@ -78,10 +78,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--resume",
-    default="",
-    type=str,
-    metavar="PATH",
-    help="path to latest checkpoint (default: none)",
+    dest="resume",
+    action="store_true",
+    help="resume training from checkpoint",
 )
 parser.add_argument(
     "-e",
@@ -164,9 +163,11 @@ def main_worker(gpu, args):
     logger.info(f"=> model: {model}")
 
     if args.gpu is not None:
+        logger.info(f"=> using gpu: {args.gpu}")
         torch.cuda.set_device(args.gpu)
         model = model.cuda(args.gpu)
     else:
+        logger.info("=> using dataparallel")
         model = torch.nn.DataParallel(model).cuda()
 
     cudnn.benchmark = True
@@ -175,7 +176,7 @@ def main_worker(gpu, args):
     test_file_path = "data/sample_submission.csv"
 
     # root_directory = "data/preprocess/240x176x48"  # unetr
-    root_directory = "data/preprocess/232x176x50_v5"  # unet3d
+    root_directory = "data/preprocess/232x176x50_v10"  # unet3d
     logger.info(f"=> root_directory {root_directory}")
 
     logger.info("=> loading training/validating data")
@@ -271,6 +272,11 @@ def main_worker(gpu, args):
         display_plot=True,
     )
 
+    if args.pretrained_dir and not (args.evaluate or args.test_submit or args.resume):
+        logger.error(
+            "=> pretrained_dir is only used with --evaluate or --test-submit or --resume option enabled"
+        )
+
     if args.evaluate:
         # python .\train_unetr_1225.py --batch-size 4 --pretrained-dir "./logs/2023_12_26_3" --evaluate --gen-mask
         assert (
@@ -306,7 +312,7 @@ def create_logger():
             i += 1
             pass
     logging.basicConfig(
-        format="%(asctime)s - %(message)s",
+        format="%(asctime)s %(levelname)s %(message)s",
         handlers=[
             logging.FileHandler(os.path.join(log_path, "run.log")),  # Log to a file
             logging.StreamHandler(),  # Log to the console
