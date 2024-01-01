@@ -2,22 +2,22 @@ train
 
 -   Case: 800
 -   Slice per case: 50
--   Total slice: $ 800\times50=40000 $
+-   Total slice: $$ 800\times50=40000 $$
 
 -   Total skipped slices: 36260
     -   Total slices with label 0: 36260
     -   Total slices with label 1: 9
 -   Acc:
-    -   Formula: $ \frac{CorrectNum}{TotalSlice} $
-    -   Include skipped： $ \frac{acc\times40000+(36260-9)}{40000+36260} $
-    -   E.g. Train acc = 0.7，$ \frac{0.7\times40000+(36260-9)}{40000+36260}\approx0.84 $
+    -   Formula: $$ \frac{CorrectNum}{TotalSlice} $$
+    -   Include skipped： $$ \frac{acc\times40000+(36260-9)}{40000+36260} $$
+    -   E.g. Train acc = 0.7，$$ \frac{0.7\times40000+(36260-9)}{40000+36260}\approx0.84 $$
 -   F1
-    -   Formula: $ \frac{2TP}{2TP + FP + FN} $
+    -   Formula: $$ \frac{2TP}{2TP + FP + FN} $$
         -   TP: True Positives
         -   FP: False Positives
         -   TN: True Negatives
         -   FN: False Negatives
-    -   Include skipped： $ \frac{2TP + 0}{(2TP + FP + FN) + (0 + 9 + 0)} $
+    -   Include skipped： $$ \frac{2TP + 0}{(2TP + FP + FN) + (0 + 9 + 0)} $$
 
 1. **Loss:**
 
