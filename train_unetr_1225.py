@@ -62,7 +62,7 @@ parser.add_argument(
 parser.add_argument(
     "--lr",
     "--learning-rate",
-    default=0.1,
+    default=5e-4,
     type=float,
     metavar="LR",
     help="initial learning rate",
@@ -176,20 +176,10 @@ def main_worker(gpu, args):
     test_file_path = "data/sample_submission.csv"
 
     # root_directory = "data/preprocess/240x176x48"  # unetr
-    root_directory = "data/preprocess/232x176x50_v10"  # unet3d
+    root_directory = "data/preprocess/232x176x50_v11"  # unet3d
     logger.info(f"=> root_directory {root_directory}")
 
     logger.info("=> loading training/validating data")
-
-    # transform = Compose(
-    #     [
-    #         RandomAffine(
-    #             degrees=(2),
-    #             translation=(2 / 232, 2 / 176),
-    #             scales=(0.001),
-    #         )
-    #     ]
-    # )
 
     train_transform = Compose(
         [
@@ -263,13 +253,14 @@ def main_worker(gpu, args):
         net=model,
         dataloaders=dataloaders,
         criterion=BCEDiceLoss(),
-        lr=5e-4,
+        lr=args.lr,
         accumulation_steps=args.accumulation_steps,
         batch_size=args.batch_size,
         num_epochs=args.epochs,
         logger=logger,
         log_path=args.log_path,
         display_plot=True,
+        float16=True,
     )
 
     if args.pretrained_dir and not (args.evaluate or args.test_submit or args.resume):
