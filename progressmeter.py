@@ -129,6 +129,11 @@ class Meter:
         self.f1_scores: list = []
         self.auroc_score: list = []
 
+        self.TPs: list = []
+        self.FPs: list = []
+        self.TNs: list = []
+        self.FNs: list = []
+
         self.m_f1 = BinaryF1Score().cuda()
         self.m_auroc = BinaryAUROC().cuda()
 
@@ -139,17 +144,32 @@ class Meter:
         f1 = self.m_f1(probs, targets).item()
         auroc = self.m_auroc(probs, targets).item()
 
+        # Calculate TP, FP, TN, FN
+        predictions = (probs >= self.threshold).float()
+        tp = ((predictions == 1) & (targets == 1)).sum().item()
+        fp = ((predictions == 1) & (targets == 0)).sum().item()
+        tn = ((predictions == 0) & (targets == 0)).sum().item()
+        fn = ((predictions == 0) & (targets == 1)).sum().item()
+
         self.dice_scores.append(dice)
         self.iou_scores.append(iou)
         self.f1_scores.append(f1)
         self.auroc_score.append(auroc)
+        self.TPs.append(tp)
+        self.FPs.append(fp)
+        self.TNs.append(tn)
+        self.FNs.append(fn)
 
     def get_last_metrics(self) -> np.ndarray:
         dice = self.dice_scores[-1]
         iou = self.iou_scores[-1]
         f1 = self.f1_scores[-1]
         auroc = self.auroc_score[-1]
-        return dice, iou, f1, auroc
+        tp = self.TPs[-1]
+        fp = self.FPs[-1]
+        tn = self.TNs[-1]
+        fn = self.FNs[-1]
+        return tp, fp, tn, fn, dice, iou, f1, auroc
 
     def get_metrics(self) -> np.ndarray:
         dice = np.mean(self.dice_scores)
@@ -157,28 +177,3 @@ class Meter:
         f1 = np.mean(self.f1_scores)
         auroc = np.mean(self.auroc_score)
         return dice, iou, f1, auroc
-
-
-def build_train_progress(data_size):
-    batch_time = AverageMeter("Time", ":6.3f")
-    data_time = AverageMeter("Data", ":6.3f")
-    losses = AverageMeter("Loss", ":.4e")
-    top1 = AverageMeter("Acc@1", ":6.2f")
-    top5 = AverageMeter("Acc@5", ":6.2f")
-    return ProgressMeter(
-        data_size,
-        batch_time,
-        data_time,
-        losses,
-        top1,
-        top5,
-        prefix="Epoch: [{}]".format(1),
-    )
-
-
-def build_valid_progress(data_size):
-    batch_time = AverageMeter("Time", ":6.3f")
-    losses = AverageMeter("Loss", ":.4e")
-    top1 = AverageMeter("Acc@1", ":6.2f")
-    top5 = AverageMeter("Acc@5", ":6.2f")
-    return ProgressMeter(data_size, batch_time, losses, top1, top5, prefix="Test: ")
