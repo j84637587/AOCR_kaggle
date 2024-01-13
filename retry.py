@@ -21,6 +21,10 @@ from datasets.mask_dataset import build_dataloader
 
 import nibabel as nib
 
+# from monai.networks.nets import SwinUNETR
+from monai import data, transforms
+from compose.LoadPreprocessedImaged import LoadPreprocessedImaged
+
 import warnings
 import logging
 
@@ -233,6 +237,66 @@ def jaccard_coef_metric_per_classes(
     return scores
 
 
+def get_loader(data_dir, batch_size=8, train_csv="./data/TrainValid_split.csv"):
+    data_dir = os.path.join(data_dir, "1_Train,Valid_Image")
+
+    def datafold_read(train_csv):
+        df = pd.read_csv(train_csv)
+        tr = df[df["group"] == "Train"].reset_index(drop=True)["id"].tolist()
+        val = df[df["group"] == "Valid"].reset_index(drop=True)["id"].tolist()
+        return tr, val
+
+    train_files, validation_files = datafold_read(train_csv=train_csv)
+    train_transform = transforms.Compose(
+        [
+            LoadPreprocessedImaged(data_dir=data_dir),
+            # transforms.Resized(keys=["image", "label"], spatial_size=(256, 192, 64)),
+            transforms.EnsureChannelFirstd(
+                keys=["image", "label"], channel_dim="no_channel"
+            ),
+            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=0),
+            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=1),
+            transforms.RandFlipd(keys=["image", "label"], prob=0.5, spatial_axis=2),
+            transforms.NormalizeIntensityd(
+                keys="image", nonzero=True, channel_wise=True
+            ),
+            transforms.RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
+            transforms.RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
+        ]
+    )
+    val_transform = transforms.Compose(
+        [
+            LoadPreprocessedImaged(data_dir=data_dir),
+            transforms.EnsureChannelFirstd(
+                keys=["image", "label"], channel_dim="no_channel"
+            ),
+            transforms.NormalizeIntensityd(
+                keys="image", nonzero=True, channel_wise=True
+            ),
+        ]
+    )
+
+    train_ds = data.Dataset(data=train_files, transform=train_transform)
+
+    train_loader = data.DataLoader(
+        train_ds,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=8,
+        pin_memory=True,
+    )
+    val_ds = data.Dataset(data=validation_files, transform=val_transform)
+    val_loader = data.DataLoader(
+        val_ds,
+        batch_size=1,
+        shuffle=False,
+        num_workers=8,
+        pin_memory=True,
+    )
+
+    return train_loader, val_loader
+
+
 class Trainer:
     """
     Factory for training proccess.
@@ -309,9 +373,13 @@ class Trainer:
         total_batches = len(dataloader)
         running_loss = 0.0
         self.optimizer.zero_grad()
+        # for itr, batch_data in enumerate(dataloader):
         for itr, (id, images, targets) in enumerate(dataloader):
             images = images.float()
             targets = targets.long()
+            # images, targets = batch_data["image"].to(self.device), batch_data[
+            #     "label"
+            # ].to(self.device)
 
             loss, logits = self._compute_loss_and_outputs(images, targets)
             loss = loss / self.accumulation_steps
@@ -355,7 +423,7 @@ class Trainer:
                 )
             self._save_train_history()
 
-    def test_submit(self, threshold=0.6, valid=False):
+    def test_submit(self, threshold=0.7, valid=False):
         mask_result = os.path.join(self.log_path, "mask_result")
         os.makedirs(mask_result, exist_ok=True)
 
@@ -403,15 +471,9 @@ class Trainer:
                         pred, area_thresholding=40, connectivity=8
                     )
 
-                    # if valid:
-                    #     mask = np.zeros((512, 512, num_slice))
-                    #     mask[59:291, 185:361, :70] = post_processed
-                    #     mask = nib.Nifti1Image(mask.astype(np.float64), affine=np.eye(4))
-                    #     nib.save(mask, os.path.join(mask_result, f"{id}_pred.nii.gz"))
-
                     pred = np.any(post_processed, axis=(0, 1, 2))
-                    if np.sum(pred) < 3:
-                        pred = np.zeros_like(pred)
+                    # if np.sum(pred) < 3:
+                    #     pred = np.zeros_like(pred)
                     # pred = connected_ones(pred)
 
                     # if find_longest_sequence(pred) < 2:
@@ -419,6 +481,14 @@ class Trainer:
 
                     s = start[id_itr]
                     e = end[id_itr]
+
+                    if valid:
+                        mask = np.zeros((512, 512, num_slice))
+                        mask[59:291, 185:361, s:e] = post_processed
+                        mask = nib.Nifti1Image(
+                            mask.astype(np.float64), affine=np.eye(4)
+                        )
+                        nib.save(mask, os.path.join(mask_result, f"{id}_pred.nii.gz"))
 
                     # set slice-level cls
                     rlt = np.zeros(num_slice)
@@ -454,6 +524,23 @@ class Trainer:
                 gt_df = pd.read_csv("data/TrainValid_ground_truth.csv")
                 gt_df_scan = gt_df[gt_df["id"].isin(df_scan["id"])]
                 gt_df_slice = gt_df[gt_df["id"].isin(df_slice["id"])]
+
+                # get ids that labels not are not correct
+                gt_df_scan_reset = gt_df_scan.reset_index(drop=True)
+                df_scan_reset = df_scan.reset_index(drop=True)
+
+                mismatched_ids = gt_df_scan_reset[
+                    gt_df_scan_reset["label"].astype(str)
+                    != df_scan_reset["label"].astype(str)
+                ]["id"].tolist()
+                self.logger.info(
+                    f"Scan ids that labels not are not correct: {mismatched_ids}"
+                )
+                os.makedirs(os.path.join(mask_result, "wrong_masks"), exist_ok=True)
+                for id in mismatched_ids:
+                    os.system(
+                        f"cp {os.path.join(mask_result, f'{id}_pred.nii.gz')} {os.path.join(mask_result, 'wrong_masks')}"
+                    )
 
                 tn, fp, fn, tp = get_confusion_matrix_df(
                     y_pred=df_scan["label"], y=gt_df_scan["label"]
@@ -570,17 +657,23 @@ def create_logger():
 if __name__ == "__main__":
     log_path, logger = create_logger()
 
-    batch_size = 8
+    batch_size = 4
     accumulation_steps = 8
     workers = 8
     csv_file_path = "data/TrainValid_split.csv"
     test_file_path = "data/sample_submission.csv"
-    # root_directory = "data/preprocess/232x176x50_v5"
-    root_directory = "data/preprocess/232x176x70_v1"  # unet3d
+    root_directory = "data/preprocess/232x176x50_v5"
+    # root_directory = "data/preprocess/232x176x70_v1"  # unet3d
 
     logger.info(f"=> root_directory: {root_directory}")
 
+    # train_loader, val_loader = get_loader(
+    #     root_directory, batch_size=batch_size, train_csv=csv_file_path
+    # )
+
     dataloaders = {
+        # "Train": train_loader,
+        # "Valid": val_loader,
         "Train": build_dataloader(
             csv_file_path,
             root_directory,
@@ -610,7 +703,7 @@ if __name__ == "__main__":
             phase="Test",
         ),
     }
-    nodel = UNet3d(in_channels=1, n_classes=1, n_channels=32).to("cuda")
+    nodel = UNet3d(in_channels=1, n_classes=1, n_channels=64).to("cuda")
     nodel = torch.nn.DataParallel(nodel).cuda()
 
     trainer = Trainer(
@@ -621,13 +714,13 @@ if __name__ == "__main__":
         accumulation_steps=accumulation_steps,
         batch_size=batch_size,
         fold=0,
-        num_epochs=300,
+        num_epochs=500,
         logger=logger,
         log_path=log_path,
     )
     # trainer.load_predtrain_model("logs/2023_12_31_8_unet3d_best_v2_bad/model_best.pth")
-    # trainer.load_predtrain_model(
-    #     "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_11_12/best_model.pth"
-    # )
+    trainer.load_predtrain_model(
+        "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_13_1/best_model.pth"
+    )
     trainer.run()
-    # trainer.test_submit(valid=True)  # valid=True
+    # trainer.test_submit(valid=True)
