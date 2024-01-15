@@ -8,6 +8,11 @@ def postprocessing(binary_image, area_thresholding=20, connectivity=8):
         binary_image_2d = binary_image[0, :, :, slice_itr]
         binary_image_2d = binary_image_2d.astype(np.uint8)  # Convert to CV_8U
 
+        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # binary_image_2d = cv2.erode(binary_image_2d, kernel, iterations=1)     # 先侵蝕，將白色小圓點移除
+
+        # binary_image_2d = cv2.dilate(binary_image_2d, kernel)    # 再膨脹，白色小點消失
+
         # num_labels: 有幾個連通區域
         # labels: 每個 pixel 屬於哪個連通區域
         # stats: 每個連通區域的統計資訊, 例如: x, y, width, height, area
@@ -32,6 +37,20 @@ def postprocessing(binary_image, area_thresholding=20, connectivity=8):
 
         # print("#" * 40)
     return binary_image
+
+
+def find_longest_sequence(lst):
+    max_length = 0
+    current_length = 0
+
+    for num in lst:
+        if num == 1:
+            current_length += 1
+            max_length = max(max_length, current_length)
+        else:
+            current_length = 0
+
+    return max_length
 
 
 if __name__ == "__main__":
