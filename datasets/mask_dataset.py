@@ -25,17 +25,20 @@ class SegDataset(Dataset):
         phase: str = "Valid",
         transform=None,
     ):
-        if phase not in ["Valid", "Train", "Test"]:
+        if phase not in ["Valid", "Train", "Test", "ValidTest"]:
             raise ValueError("Invalid phase. Only 'Valid' and 'Train' are allowed.")
 
         if phase == "Test":
-            self.df_sub = df.copy()
             self.df = df[df["id"].str.contains(r"^[^_]*$", regex=True)].reset_index(
                 drop=True
             )  # without slice-level scan
             self.root_path = root_path + "/3_Test1_Image/"
+        elif phase == "ValidTest":
+            self.df = df[df["group"] == "Valid"].reset_index(drop=True)
+            self.root_path = root_path + "/1_Train,Valid_Image_Test/"
         else:
             self.df = df[df["group"] == phase].reset_index(drop=True)
+            # self.df = df[df["scan-level label"] == 1].reset_index(drop=True)
             self.root_path = root_path + "/1_Train,Valid_Image/"
         self.phase = phase
         self.transform = transform
@@ -64,7 +67,7 @@ class SegDataset(Dataset):
 
         # ct = torch.unsqueeze(ct, 0)  # expand
 
-        if self.phase != "Test":
+        if self.phase not in ["Test", "ValidTest"]:
             mask = data["mask"].float()
             # mask = torch.unsqueeze(mask, 0)  # expand
 
@@ -73,6 +76,7 @@ class SegDataset(Dataset):
                 return id_, trans_data["image"], trans_data["mask"]
             else:
                 ct = torch.unsqueeze(ct, 0)
+                mask = torch.unsqueeze(mask, 0)
                 return id_, ct, mask
 
         ct = torch.unsqueeze(ct, 0)
