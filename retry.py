@@ -22,6 +22,7 @@ from datasets.mask_dataset import build_dataloader
 import nibabel as nib
 
 # from monai.networks.nets import SwinUNETR
+import monai
 from monai import data, transforms
 from compose.LoadPreprocessedImaged import LoadPreprocessedImaged
 
@@ -134,7 +135,7 @@ class DiceLoss(nn.Module):
         num = targets.size(0)
         probability = torch.sigmoid(logits)
         probability = probability.view(num, -1)
-        targets = targets.view(num, -1)
+        targets = targets.contiguous().view(num, -1)
         assert probability.shape == targets.shape
 
         intersection = 2.0 * (probability * targets).sum()
@@ -343,6 +344,7 @@ class Trainer:
         self.net = self.net.to(self.device)
         self.criterion = criterion
         self.optimizer = Adam(self.net.parameters(), lr=lr)
+        # self.optimizer = monai.optimizers.Novograd(self.net.parameters(), lr=lr)
         self.scheduler = ReduceLROnPlateau(
             self.optimizer, mode="min", patience=2, verbose=True
         )
@@ -365,6 +367,9 @@ class Trainer:
         return loss, logits
 
     def _do_epoch(self, epoch: int, phase: str):
+        # print learning rate
+        for param_group in self.optimizer.param_groups:
+            self.logger.info(f"epoch: {epoch} | lr: {param_group['lr']}")
         self.logger.info(f"{phase} epoch: {epoch} | time: {time.strftime('%H:%M:%S')}")
 
         self.net.train() if phase == "Train" else self.net.eval()
@@ -375,6 +380,9 @@ class Trainer:
         self.optimizer.zero_grad()
         # for itr, batch_data in enumerate(dataloader):
         for itr, (id, images, targets) in enumerate(dataloader):
+            images = images.permute(0, 1, 4, 2, 3)
+            targets = targets.permute(0, 1, 4, 2, 3)
+
             images = images.float()
             targets = targets.long()
             # images, targets = batch_data["image"].to(self.device), batch_data[
@@ -423,7 +431,14 @@ class Trainer:
                 )
             self._save_train_history()
 
-    def test_submit(self, threshold=0.7, valid=False):
+    def test_submit(
+        self,
+        threshold=0.7,
+        valid=False,
+        filter_num_slice=0,
+        do_connected_ones=False,
+        gen_nii=False,
+    ):
         mask_result = os.path.join(self.log_path, "mask_result")
         os.makedirs(mask_result, exist_ok=True)
 
@@ -467,14 +482,14 @@ class Trainer:
                     num_slice = num_slices[id_itr]
                     pred = binary_predictions[id_itr]
 
-                    post_processed = postprocessing(
-                        pred, area_thresholding=40, connectivity=8
-                    )
+                    post_processed = postprocessing(pred)
 
                     pred = np.any(post_processed, axis=(0, 1, 2))
-                    # if np.sum(pred) < 3:
-                    #     pred = np.zeros_like(pred)
-                    # pred = connected_ones(pred)
+                    if np.sum(pred) < filter_num_slice:
+                        pred = np.zeros_like(pred)
+
+                    if do_connected_ones:
+                        pred = connected_ones(pred)
 
                     # if find_longest_sequence(pred) < 2:
                     #     pred = np.zeros_like(pred)
@@ -482,12 +497,13 @@ class Trainer:
                     s = start[id_itr]
                     e = end[id_itr]
 
-                    if valid:
+                    if valid and gen_nii:
                         mask = np.zeros((512, 512, num_slice))
                         mask[59:291, 185:361, s:e] = post_processed
                         mask = nib.Nifti1Image(
                             mask.astype(np.float64), affine=np.eye(4)
                         )
+
                         nib.save(mask, os.path.join(mask_result, f"{id}_pred.nii.gz"))
 
                     # set slice-level cls
@@ -536,11 +552,22 @@ class Trainer:
                 self.logger.info(
                     f"Scan ids that labels not are not correct: {mismatched_ids}"
                 )
-                os.makedirs(os.path.join(mask_result, "wrong_masks"), exist_ok=True)
+                if gen_nii:
+                    os.makedirs(os.path.join(mask_result, "wrong_masks"), exist_ok=True)
+                    for id in mismatched_ids:
+                        os.system(
+                            f"cp {os.path.join(mask_result, f'{id}_pred.nii.gz')} {os.path.join(mask_result, 'wrong_masks')}"
+                        )
                 for id in mismatched_ids:
-                    os.system(
-                        f"cp {os.path.join(mask_result, f'{id}_pred.nii.gz')} {os.path.join(mask_result, 'wrong_masks')}"
+                    a = gt_df_slice[gt_df_slice["id"].str.contains(id)][
+                        "label"
+                    ].tolist()
+                    b = (
+                        df_slice[df_slice["id"].str.contains(id)]["label"]
+                        .astype(int)
+                        .tolist()
                     )
+                    print(f"{id}: \n{a} -> \n{b}")
 
                 tn, fp, fn, tp = get_confusion_matrix_df(
                     y_pred=df_scan["label"], y=gt_df_scan["label"]
@@ -609,10 +636,10 @@ class Trainer:
         plt.tight_layout()
         plt.savefig(os.path.join(self.log_path, "history.png"))
 
-    def load_predtrain_model(self, state_path: str):
+    def load_pretrain_model(self, state_path: str):
         # self.net.load_state_dict(torch.load(state_path)["state_dict"])
         self.net.load_state_dict(torch.load(state_path))
-        self.logger.info(f"Predtrain model loaded {state_path}")
+        self.logger.info(f"Pretrain model loaded {state_path}")
 
     def _save_train_history(self):
         """writing model weights and training logs to files."""
@@ -657,14 +684,16 @@ def create_logger():
 if __name__ == "__main__":
     log_path, logger = create_logger()
 
-    batch_size = 4
+    batch_size = 2
     accumulation_steps = 8
     workers = 8
     csv_file_path = "data/TrainValid_split.csv"
     test_file_path = "data/sample_submission.csv"
-    root_directory = "data/preprocess/232x176x50_v5"
+    root_directory = "data/preprocess/232x176x50_v20"
     # root_directory = "data/preprocess/232x176x70_v1"  # unet3d
 
+    logger.info(f"=> batch_size: {batch_size}")
+    logger.info(f"=> accumulation_steps: {accumulation_steps}")
     logger.info(f"=> root_directory: {root_directory}")
 
     # train_loader, val_loader = get_loader(
@@ -703,11 +732,40 @@ if __name__ == "__main__":
             phase="Test",
         ),
     }
-    nodel = UNet3d(in_channels=1, n_classes=1, n_channels=64).to("cuda")
-    nodel = torch.nn.DataParallel(nodel).cuda()
+    net = UNet3d(in_channels=1, n_classes=1, n_channels=32).to("cuda")
+    # net = monai.networks.nets.UNet(
+    #     spatial_dims=3,
+    #     in_channels=1,
+    #     out_channels=1,
+    #     channels=(16, 32),
+    #     strides=(1, 1, 1),
+    #     num_res_units=4,
+    # )
+    # net = monai.networks.nets.AutoEncoder(
+    #     spatial_dims=3,
+    #     in_channels=1,
+    #     out_channels=1,
+    #     channels=(4,),
+    #     strides=(2,),
+    #     inter_channels=(8, 8, 8),
+    #     inter_dilations=(1, 2, 4),
+    #     num_inter_units=2,
+    # )
+    # net = monai.networks.nets.RegUNet(
+    #     spatial_dims=3,
+    #     in_channels=1,
+    #     num_channel_initial=1,
+    #     depth=4,
+    #     out_channels=1,
+    #     channels=(16, 32),
+    #     strides=(1, 1, 1),
+    #     num_res_units=4,
+    # )
+    logger.info(f"=> model: {net}")
+    net = torch.nn.DataParallel(net).cuda()
 
     trainer = Trainer(
-        net=nodel,
+        net=net,
         dataloaders=dataloaders,
         criterion=BCEDiceLoss(),
         lr=5e-4,
@@ -718,9 +776,11 @@ if __name__ == "__main__":
         logger=logger,
         log_path=log_path,
     )
-    # trainer.load_predtrain_model("logs/2023_12_31_8_unet3d_best_v2_bad/model_best.pth")
-    trainer.load_predtrain_model(
-        "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_13_1/best_model.pth"
-    )
+    # trainer.load_pretrain_model("logs/2023_12_31_8_unet3d_best_v2_bad/model_best.pth")
+    # trainer.load_pretrain_model(
+    #     "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_15_10/best_model.pth"
+    # )
     trainer.run()
-    # trainer.test_submit(valid=True)
+    # trainer.test_submit(
+    #     valid=True, threshold=0.8, filter_num_slice=3, do_connected_ones=False
+    # )
