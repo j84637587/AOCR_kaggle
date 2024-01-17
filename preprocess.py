@@ -4,6 +4,7 @@ from tqdm import tqdm
 import nibabel as nib
 import os
 from scipy import ndimage
+import scipy.ndimage
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -32,15 +33,45 @@ def resize_volume(img, desired_depth=64, desired_width=512, desired_height=512):
     return img
 
 
-def normalize(sample, WL=45, WW=300):
-    """Normalize the volume"""
+def resample(image, scan, new_spacing=[1, 1, 1]):
+    # Determine current pixel spacing
+    spacing = map(float, ([scan[0].SliceThickness] + scan[0].PixelSpacing))
+    spacing = np.array(list(spacing))
+
+    resize_factor = spacing / new_spacing
+    new_real_shape = image.shape * resize_factor
+    new_shape = np.round(new_real_shape)
+    real_resize_factor = new_shape / image.shape
+    new_spacing = spacing / real_resize_factor
+
+    image = scipy.ndimage.interpolation.zoom(image, real_resize_factor)
+
+    return image, new_spacing
+
+
+def do_WWL(ct, WL=45, WW=300, normalize=False):
+    """Windowing and leveling"""
     CT_min = WL - WW / 2  # -200
     CT_max = WL + WW / 2
 
-    sample = (sample - CT_min) / (CT_max - CT_min)
-    sample[sample > 1] = 1.0
-    sample[sample < 0] = 0.0
-    return sample
+    ct = np.clip((ct - (WL - WW / 2.0)) / WW, 0, 1)
+
+    # clip on ct
+    # ct[ct < CT_min] = CT_min
+    # ct[ct > CT_max] = CT_max
+
+    # ct = (ct - CT_min) / (CT_max - CT_min)
+
+    # clip on wwwl
+    # if isinstance(ct, np.ndarray):
+    #     ct = np.clip(ct, 0.0, 1.0)
+    # else:
+    #     ct = torch.clamp(ct, 0.0, 1.0)
+
+    if normalize:
+        ct = (ct - ct.mean()) / ct.std()
+
+    return ct
 
 
 class CustomDataset(Dataset):
@@ -74,7 +105,15 @@ class CustomDataset(Dataset):
         labels = self.gt_df[self.gt_df["id"].str.contains(rf"{id}_.*", regex=True)][
             "label"
         ].tolist()
-        return labels[s:e]
+
+        print(f"get_label: {id}, {s}, {e}, {len(labels)}")
+        labels = labels[s:e]
+        print(f"get_label: {id}, {s}, {e}, {len(labels)}")
+        # if len(labels) < self.n:
+        #     labels = labels + [0] * (self.n - len(labels))
+        #     print("zero_padding labels: ", len(labels))
+
+        return labels
 
     def get_slice(self, nii_path, s=None, e=None, resize=False):
         if s is None:
@@ -88,7 +127,18 @@ class CustomDataset(Dataset):
         while True:
             slices = volume[..., s:e]
             if slices.shape[2] < self.n:
-                s = s - (self.n - slices.shape[2])
+                missing_size = self.n - slices.shape[2]
+
+                # do zero padding
+                # if s == 0:
+                #     zero_padding = np.zeros(
+                #         (slices.shape[0], slices.shape[1], missing_size)
+                #     )
+                #     slices = np.concatenate((slices, zero_padding), axis=2)
+                #     print("zero_padding: ", slices.shape)
+                #     break
+
+                s = s - missing_size
                 if s < 0:
                     e = e + abs(s)
                     s = 0
@@ -107,14 +157,14 @@ class CustomDataset(Dataset):
         slices, shape, s, e = self.get_slice(f"./data/{self.sub_dir}/{id}.nii.gz")
         label = self.get_label(id, s, e)
 
-        # slices = normalize(slices)
-        sample_tensor = torch.from_numpy(slices).float()
-        label_tensor = torch.tensor(label).float()
+        slices = do_WWL(slices, WL=40, WW=480, normalize=False)
+        sample_tensor = torch.from_numpy(slices)  # .half()
 
         if self.phase == "Train":
+            label_tensor = torch.tensor(label)  # .half()
             mask = self.get_slice(f"./data/2_Train,Valid_Mask/{id}_label.nii.gz", s, e)
             mask = mask[0]
-            mask_tensor = torch.from_numpy(mask.astype(np.uint8)).float()
+            mask_tensor = torch.from_numpy(mask.astype(np.uint8))  # .half()
             torch.save(
                 {"ct": sample_tensor, "mask": mask_tensor, "label": label_tensor},
                 f"{self.save_to}/1_Train,Valid_Image/{id}.pt",
@@ -142,13 +192,22 @@ if __name__ == "__main__":
         drop=True
     )
     gtVal = pd.read_csv("./data/TrainValid_ground_truth.csv")
-    SAVE_TO = "./data/preprocess/232x176x50_v5"
+    SAVE_TO = "./data/preprocess/232x176x50_v20"
     min_x = 185
     max_x = 361
     min_y = 59
     max_y = 291
     S = 12 - 1
     E = 61
+
+    # S = 0
+    # E = 70
+
+    # for mid
+    # min_x = 203
+    # max_x = 352
+    # min_y = 67
+    # max_y = 270
 
     # min_x = 185
     # max_x = 361
@@ -197,9 +256,9 @@ if __name__ == "__main__":
 
     train_dataloader = DataLoader(
         train_dataset,
-        batch_size=1,  # 02:57
+        batch_size=8,  # 02:57
         shuffle=False,
-        num_workers=0,
+        num_workers=16,
         pin_memory=False,
     )
 
@@ -210,7 +269,7 @@ if __name__ == "__main__":
         test_dataset,
         batch_size=8,  # 02:57
         shuffle=False,
-        num_workers=8,
+        num_workers=16,
         pin_memory=False,
     )
 
