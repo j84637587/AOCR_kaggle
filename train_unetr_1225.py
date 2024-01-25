@@ -15,12 +15,11 @@ import torch.utils.data.distributed
 from torchio import Compose, RandomAffine
 
 from losses.BCEDiceLoss import BCEDiceLoss
-from models.UNETR import UNETR_Net
+from monai.losses import DiceCELoss
 from models.UNet3d import UNet3d
 from datasets.mask_dataset import build_dataloader
 from trainer import Trainer
 import sys
-import numpy as np
 
 from monai.transforms import (
     AddChanneld,
@@ -40,7 +39,7 @@ parser.add_argument(
     help="number of data loading workers (default: 4)",
 )
 parser.add_argument(
-    "--epochs", default=100, type=int, metavar="N", help="number of total epochs to run"
+    "--epochs", default=500, type=int, metavar="N", help="number of total epochs to run"
 )
 parser.add_argument(
     "--start-epoch",
@@ -52,7 +51,7 @@ parser.add_argument(
 parser.add_argument(
     "-b",
     "--batch-size",
-    default=4,
+    default=8,
     type=int,
     metavar="N",
     help="mini-batch size (default: 256), this is the total "
@@ -62,7 +61,7 @@ parser.add_argument(
 parser.add_argument(
     "--lr",
     "--learning-rate",
-    default=5e-4,
+    default=1e-4,
     type=float,
     metavar="LR",
     help="initial learning rate",
@@ -114,7 +113,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--accumulation-steps",
-    default=4,
+    default=32,
     type=int,
     metavar="N",
     help="number of steps to accumulate gradients before performing optimization",
@@ -125,10 +124,12 @@ parser.add_argument("--gpu", default=None, type=int, help="GPU id to use.")
 def main():
     args = parser.parse_args()
 
+    cudnn.benchmark = True
     if args.seed is not None:
         random.seed(args.seed)
         torch.manual_seed(args.seed)
         cudnn.deterministic = True
+        cudnn.benchmark = False
         warnings.warn(
             "You have chosen to seed training. "
             "This will turn on the CUDNN deterministic setting, "
@@ -136,6 +137,8 @@ def main():
             "You may see unexpected behavior when restarting "
             "from checkpoints."
         )
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(args.seed)
 
     if args.gpu is not None:
         warnings.warn(
@@ -158,7 +161,6 @@ def main_worker(gpu, args):
     logger.info(f"=> script: {__file__}")
     logger.info("=> args" + str(args))
     logger.info("=> creating model")
-    # model = UNETR_Net(img_size=(240, 176, 48), feature_size=24)
     model = UNet3d(in_channels=1, n_classes=1, n_channels=32)
     logger.info(f"=> model: {model}")
 
@@ -168,49 +170,20 @@ def main_worker(gpu, args):
         model = model.cuda(args.gpu)
     else:
         logger.info("=> using dataparallel")
-        model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model.cuda())
 
     cudnn.benchmark = True
 
     csv_file_path = "data/TrainValid_split.csv"
     test_file_path = "data/sample_submission.csv"
 
-    # root_directory = "data/preprocess/240x176x48"  # unetr
-    root_directory = "data/preprocess/232x176x50_v11"  # unet3d
+    root_directory = "data/preprocess/232x176x50_v5"  # unet3d
     logger.info(f"=> root_directory {root_directory}")
-
     logger.info("=> loading training/validating data")
 
     train_transform = Compose(
         [
             AddChanneld(keys=["image", "mask"]),
-            # Spacingd(
-            #     keys=["image", "mask"],
-            #     pixdim=(1.5, 1.5, 2.0),
-            #     mode=("bilinear", "nearest"),
-            # ),
-            # Orientationd(keys=["image", "mask"], axcodes="RAS"),
-            # ScaleIntensityRanged(
-            #     keys=["image"],
-            #     a_min=-200,
-            #     a_max=200,
-            #     b_min=0.0,
-            #     b_max=1.0,
-            #     clip=True,
-            # ),
-            # RandAffined(keys=["image", "mask"], prob=0.5, translate_range=10),
-            # RandRotated(keys=["image", "mask"], prob=0.5, range_x=10.0),
-            # to test
-            # RandAffined(
-            #     keys=["image", "mask"],
-            #     mode=("bilinear", "nearest"),
-            #     prob=1.0,
-            #     spatial_size=(300, 300, 50),
-            #     translate_range=(40, 40, 2),
-            #     rotate_range=(np.pi / 36, np.pi / 36, np.pi / 4),
-            #     scale_range=(0.15, 0.15, 0.15),
-            #     padding_mode="border",
-            # ),
         ]
     )
 
@@ -252,15 +225,14 @@ def main_worker(gpu, args):
     trainer = Trainer(
         net=model,
         dataloaders=dataloaders,
-        criterion=BCEDiceLoss(),
+        criterion=DiceCELoss(),
         lr=args.lr,
         accumulation_steps=args.accumulation_steps,
         batch_size=args.batch_size,
         num_epochs=args.epochs,
         logger=logger,
         log_path=args.log_path,
-        display_plot=True,
-        float16=True,
+        amp=False,
     )
 
     if args.pretrained_dir and not (args.evaluate or args.test_submit or args.resume):

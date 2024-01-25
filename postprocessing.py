@@ -2,8 +2,47 @@ import cv2
 import numpy as np
 
 
-def postprocessing(binary_image, area_thresholding=20, connectivity=8):
-    # Reshape the binary_image to 2D
+def postprocessing(
+    binary_image, image, area_thresholding=40, ct_vol_thresholding=100, logger=None
+):
+    total_ct_true = 0
+    for slice_itr in range(binary_image.shape[-1]):
+        binary_image_2d = binary_image[0, :, :, slice_itr]
+        binary_image_2d = binary_image_2d.astype(np.uint8)  # Convert to CV_8U
+
+        num_ones_before = np.count_nonzero(binary_image_2d)
+        nonzero = np.nonzero(binary_image_2d)
+        if len(nonzero[0]) != 0:
+            # print each pixel position of nonzero
+            for i in range(len(nonzero[0])):
+                y = nonzero[0][i]
+                x = nonzero[1][i]
+
+                if image[0, y, x, slice_itr] <= -1000:
+                    logger.info(f"AIR!!")
+                    binary_image[..., slice_itr] = 0
+                    break
+
+        num_ones = np.count_nonzero(binary_image_2d)
+        if num_ones_before != num_ones:
+            logger.info(f"HU: \n{num_ones_before} -> {num_ones}")
+
+        if num_ones != 0 and num_ones < area_thresholding:
+            logger.info(f"num_ones: {num_ones} < {area_thresholding}")
+            binary_image[0, :, :, slice_itr] = 0
+        else:
+            logger.info(f"num_ones: {num_ones} >= {area_thresholding}")
+            total_ct_true += num_ones
+
+    if total_ct_true < ct_vol_thresholding:
+        logger.info(f"total_ct_true: {total_ct_true} < {ct_vol_thresholding}")
+        binary_image = np.zeros_like(binary_image)
+
+    logger.info(f"total_ct_true: {total_ct_true} >= {ct_vol_thresholding}")
+    return binary_image
+
+
+def postprocessing_old(binary_image, area_thresholding=40, connectivity=8):
     for slice_itr in range(binary_image.shape[-1]):
         binary_image_2d = binary_image[0, :, :, slice_itr]
         binary_image_2d = binary_image_2d.astype(np.uint8)  # Convert to CV_8U

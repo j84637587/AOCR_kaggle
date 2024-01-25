@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import nibabel as nib
 
+import monai
 from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai import transforms
@@ -138,7 +139,7 @@ def get_loader(batch_size, data_dir, train_csv, fold=None):
     return train_loader, val_loader
 
 
-data_dir = "data/preprocess/232x176x50_v5"
+data_dir = "data/preprocess/232x176x50_v13"
 train_data_dir = os.path.join(data_dir, "1_Train,Valid_Image")
 train_csv = "./data/TrainValid_split.csv"
 batch_size = 4
@@ -150,38 +151,11 @@ val_every = 5
 print_interval = 10
 train_loader, val_loader = get_loader(batch_size, train_data_dir, train_csv)
 
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # set order of gpu based on pci bus id
-# os.environ['CUDA_VISIBLE_DEVICES'] = "0,1" # set visible gpu
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# model = nets.SwinUNETR(
-#     img_size=(256, 192, 64),
-#     in_channels=1,
-#     out_channels=1,
-#     feature_size=48,
-#     drop_rate=0.0,
-#     attn_drop_rate=0.0,
-#     dropout_path_rate=0.0,
-#     use_checkpoint=True,
-# ).to(device)
-
-# model = nets.UNet(
-#     spatial_dims=3,
-#     in_channels=1,
-#     out_channels=1,
-#     channels=(16, 32, 64, 128),
-#     strides=(1, 1, 1),
-#     kernel_size=3,
-#     up_kernel_size=3,
-#     num_res_units=2,
-#     act="PRELU",
-#     norm="BATCH",
-#     dropout=0.2,
-#     bias=True,
-# ).to(device)
-
-model = UNet3d(in_channels=1, n_classes=1, n_channels=32).to(device)
+model = monai.networks.nets.FlexibleUNet(in_channels=1, n_classes=1, n_channels=32)
 model = nn.DataParallel(model)
+model.to(device)
 
 logger.info(model)
 logger.info(summary(model, (1, 1, 64, 64, 64), verbose=0))

@@ -7,6 +7,7 @@ from typing import Optional, Any
 from scipy import ndimage
 from skimage.transform import resize
 
+import monai
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -25,7 +26,7 @@ class SegDataset(Dataset):
         phase: str = "Valid",
         transform=None,
     ):
-        if phase not in ["Valid", "Train", "Test", "ValidTest"]:
+        if phase not in ["Valid", "Train", "ALL", "Test", "ValidTest"]:
             raise ValueError("Invalid phase. Only 'Valid' and 'Train' are allowed.")
 
         if phase == "Test":
@@ -36,6 +37,10 @@ class SegDataset(Dataset):
         elif phase == "ValidTest":
             self.df = df[df["group"] == "Valid"].reset_index(drop=True)
             self.root_path = root_path + "/1_Train,Valid_Image_Test/"
+        elif phase == "ALL":
+            self.df = df
+            # self.df = df[df["scan-level label"] == 1].reset_index(drop=True)
+            self.root_path = root_path + "/1_Train,Valid_Image/"
         else:
             self.df = df[df["group"] == phase].reset_index(drop=True)
             # self.df = df[df["scan-level label"] == 1].reset_index(drop=True)
@@ -51,21 +56,7 @@ class SegDataset(Dataset):
         data = torch.load(self.root_path + f"{id_}.pt")
 
         ct = data["ct"]
-        # ct = resize(
-        #     ct,
-        #     (96, 96, ct.shape[-1]),
-        #     order=1,
-        #     mode="reflect",
-        #     cval=0,
-        #     clip=True,
-        #     preserve_range=False,
-        #     anti_aliasing=True,
-        #     anti_aliasing_sigma=None,
-        # )
-        # ct = torch.from_numpy(ct)
-        # ct = torch.nn.functional.pad(ct, (0, 96 - ct.shape[-1]), value=0)
-
-        # ct = torch.unsqueeze(ct, 0)  # expand
+        num_slices = ct.shape[-1]
 
         if self.phase not in ["Test", "ValidTest"]:
             mask = data["mask"].float()
@@ -75,11 +66,31 @@ class SegDataset(Dataset):
                 trans_data = self.transform({"image": ct, "mask": mask})
                 return id_, trans_data["image"], trans_data["mask"]
             else:
+                # padding_width = ((0, 24), (0, 16), (0, 14))
+                # ct = np.pad(ct, padding_width, mode="constant", constant_values=0)
+                # mask = np.pad(mask, padding_width, mode="constant", constant_values=0)
+                # ct = torch.from_numpy(ct)  # Convert NumPy array to PyTorch tensor
+                # mask = torch.from_numpy(mask)  # Convert NumPy array to PyTorch tensor
+
+                # print(ct.shape)
+                # ct = monai.transforms.Resize((96, 96, 50))(ct)
+                # print(ct.shape)
+                # exit()
+                # mask = monai.transforms.Resized((96, 96, 50))(mask)
+
                 ct = torch.unsqueeze(ct, 0)
                 mask = torch.unsqueeze(mask, 0)
+
                 return id_, ct, mask
 
+        # padding_width = ((0, 24), (0, 8), (0, 14))
+        # ct = np.pad(ct, padding_width, mode="constant", constant_values=0)
+        # ct = torch.from_numpy(ct)  # Convert NumPy array to PyTorch tensor
+
+        # ct = monai.transforms.Resize((96, 96, 96))(ct)
+        # ct = monai.transforms.Resize((96, 96, 50))(ct)
         ct = torch.unsqueeze(ct, 0)
+
         return id_, ct, data["num_slice"], data["s"], data["e"]
 
 
@@ -117,7 +128,8 @@ if __name__ == "__main__":
 
     # Set your CSV file path and root directory containing images
     csv_file_path = "data/TrainValid_split.csv"
-    root_directory = "data/preprocess/232x176x50_m"
+    # root_directory = "data/preprocess/232x176x50_m"
+    root_directory = "data/preprocess/232x176x50_v18"
     test_file_path = "data/sample_submission.csv"
 
     train_loader = build_dataloader(

@@ -6,6 +6,8 @@ import torch.nn.functional as F
 class DoubleConv(nn.Module):
     """(Conv3D -> BN -> ReLU) * 2"""
 
+    """(Conv3D -> ReLU ->  BN) * 2"""
+
     def __init__(self, in_channels, out_channels, num_groups=8):
         super().__init__()
         print(num_groups, out_channels)
@@ -83,7 +85,6 @@ class Out(nn.Module):
 class UNet3d(nn.Module):
     def __init__(self, in_channels, n_classes, n_channels):
         super().__init__()
-        self.name = "UNet3d"
         self.in_channels = in_channels
         self.n_classes = n_classes
         self.n_channels = n_channels

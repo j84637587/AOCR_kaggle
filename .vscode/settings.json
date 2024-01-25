@@ -2,10 +2,12 @@
     "cSpell.words": [
         "AOCR",
         "astype",
+        "autocast",
         "cudnn",
         "Efficeient",
         "nccl",
         "optim",
+        "softmax",
         "torchvision",
         "tqdm",
         "UNETR",

@@ -1,0 +1,3446 @@
+# %% [markdown]
+# Copyright (c) MONAI Consortium
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# &nbsp;&nbsp;&nbsp;&nbsp;http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# # Auto3DSeg Data Analyzer
+#
+# Data Analyzer is one of the MONAI Auto3DSeg modules. This module provides a comprehensive analysis report using DataAnalyzer class. In this notebook, we will provide a tutorial on how to use the DataAnalyzer class on simulated and real-world datasets
+
+# %%
+import os
+import nibabel as nib
+import numpy as np
+import tempfile
+
+from monai.apps import download_and_extract
+from monai.apps.auto3dseg import DataAnalyzer
+from monai.config import print_config
+from monai.data import create_test_image_3d
+
+print_config()
+
+# %% [markdown]
+# ## Simulate a dataset and Auto3D datalist using MONAI functions
+
+# %%
+sim_datalist = {
+    "test": [
+        {"image":"3_Test1_Image/Zx00FE1B9A88E88C71917ECC1EDD774252C072CA5FDB12C01B.nii.gz"},
+        {"image":"3_Test1_Image/Zx01948F47276376729E6CD0FC35E175861DDDE016E73A6F61.nii.gz"},
+        {"image":"3_Test1_Image/Zx05B14FDAD8DE03B10E1C560619C12C542747E39A00BC1943.nii.gz"},
+        {"image":"3_Test1_Image/Zx05D5C78127C46803A2A09A76E03ED07405D28012A0536000.nii.gz"},
+        {"image":"3_Test1_Image/Zx06170DED67884FED8E4A2B173346E1A698644BB8D971FFCB.nii.gz"},
+        {"image":"3_Test1_Image/Zx0B26523F097982195CAE5A8EC2674CE36E15988A529317CD.nii.gz"},
+        {"image":"3_Test1_Image/Zx0CFEAEA49D4E19D1DB3BAE1248C9AE42D815CA7B52CC9E76.nii.gz"},
+        {"image":"3_Test1_Image/Zx0D0A3D4D2C6DF934AF9D016A5B8923F6BF5746DA99CA00D6.nii.gz"},
+        {"image":"3_Test1_Image/Zx0D7F914BAEC987017F3C179833AAFC697C1DA5A8F6CB6F16.nii.gz"},
+        {"image":"3_Test1_Image/Zx0E3C20D9BB248666F8C1605B9A9D726237A5626AD91AF5DF.nii.gz"},
+        {"image":"3_Test1_Image/Zx0FF377252BE891AC0DC9A1CABC405DA08650AFE8A28C9D04.nii.gz"},
+        {"image":"3_Test1_Image/Zx1065B0DE07F9AF895D255A52750579EE21428FAB2E575FE3.nii.gz"},
+        {"image":"3_Test1_Image/Zx1146D4F02782E6D5015CDEB8FB751D6C7BB7E6471FC5FBFF.nii.gz"},
+        {"image":"3_Test1_Image/Zx11624B7B7AEBCF0FAFD0B992BC272C41C953A7703E56E6DA.nii.gz"},
+        {"image":"3_Test1_Image/Zx15FB4DF1D36A7B4AE59373BDA3B21394428E0F28E09A68CC.nii.gz"},
+        {"image":"3_Test1_Image/Zx16043EED6C38D1B0045FDC752A66A80E336E352A945ED37F.nii.gz"},
+        {"image":"3_Test1_Image/Zx19171CE8121BE20876FC7F1BDB6C0153CEC9A2BCEF2C9EB9.nii.gz"},
+        {"image":"3_Test1_Image/Zx1A017ECAEE14A219D0A3E97E6CCF962DC599F00C30EAEE01.nii.gz"},
+        {"image":"3_Test1_Image/Zx1BE880E938C82FBD4C04159D47738D8E78875219BE6D7D6B.nii.gz"},
+        {"image":"3_Test1_Image/Zx210EA4E4E64FD80F7A268A48B2C266E51AD4313EDBF3C427.nii.gz"},
+        {"image":"3_Test1_Image/Zx212DBD941DEC06E9E3BF9D108811FA07B37CC848C4D10968.nii.gz"},
+        {"image":"3_Test1_Image/Zx21F1648A3334CE363E4D72ED92F795868BC52F94D1DA5F0F.nii.gz"},
+        {"image":"3_Test1_Image/Zx256A9E945D19FB28335E22C805EC9CDC4F4E23A7B3871D4F.nii.gz"},
+        {"image":"3_Test1_Image/Zx27F7969620CB7F945A322CD82C1A20F4424F070945ECE5A5.nii.gz"},
+        {"image":"3_Test1_Image/Zx291FD6850838B6434EDE060CF2F2F05E904D018C0B6C1745.nii.gz"},
+        {"image":"3_Test1_Image/Zx2982812805D4A3FA5078DB705FF20793142A1A712F5108B5.nii.gz"},
+        {"image":"3_Test1_Image/Zx2982812805D4A3FAF6386CE06C15E8EA4878D456AF74CC6A.nii.gz"},
+        {"image":"3_Test1_Image/Zx2D76DB29AAD23477754A6C853E7D6917BE22266389693139.nii.gz"},
+        {"image":"3_Test1_Image/Zx2E26A711E16137B7517C3B5748E84B807F967B69BEDDB9C6.nii.gz"},
+        {"image":"3_Test1_Image/Zx2FDB8744E9FC6EA59F3C32FC9F8CFF7C94D3379593055320.nii.gz"},
+        {"image":"3_Test1_Image/Zx3140C2C02EDB97CF7495E57512F57FA27B80CCA6A163B91A.nii.gz"},
+        {"image":"3_Test1_Image/Zx326A6AF603902A18E97CDAAF17A261DA3FAB17666702B15B.nii.gz"},
+        {"image":"3_Test1_Image/Zx328EF1C62C85DF79015B9A9018D3FDCC53BEA3F1711C1D82.nii.gz"},
+        {"image":"3_Test1_Image/Zx328EF1C62C85DF79504039E3352CDB682C7F28F58ADAD093.nii.gz"},
+        {"image":"3_Test1_Image/Zx32E1FB4E11BA19092F6CB3BDCA2C1A342B846CD990D12DB5.nii.gz"},
+        {"image":"3_Test1_Image/Zx34B443B478E3B00E19DF19CE2797FB9A3AE5169ABF55F387.nii.gz"},
+        {"image":"3_Test1_Image/Zx3662B675A48E317E52C7542D32A2DB1BBC0352C1EDAB368F.nii.gz"},
+        {"image":"3_Test1_Image/Zx36871521E7690C7E3AA2576BEE4AF54E5F4089FE39BEA81C.nii.gz"},
+        {"image":"3_Test1_Image/Zx36871521E7690C7EB47E0B086054163CD08276241FB95857.nii.gz"},
+        {"image":"3_Test1_Image/Zx368BA8B514BD8B0144CF287FF1F4B01FAC6C5FE0BFEFEDE6.nii.gz"},
+        {"image":"3_Test1_Image/Zx368E67F85BF969857FA5374541E87EA36E19120066C76067.nii.gz"},
+        {"image":"3_Test1_Image/Zx379A5F7814F0914AC2A577D0E6A1DAB8135D4B74CF2B3EEB.nii.gz"},
+        {"image":"3_Test1_Image/Zx3A5E7419657D564469836B830DBA881063FD52F656BFB5FE.nii.gz"},
+        {"image":"3_Test1_Image/Zx3AB91ED4F2F9AA3B238DDC9EEE0BF3E122BE00BCE2D2CD99.nii.gz"},
+        {"image":"3_Test1_Image/Zx3B29D889A4EF0EE3BB96E2E05F7242BC09F2C9A1219D39EE.nii.gz"},
+        {"image":"3_Test1_Image/Zx3E443FFD3162E0841D1B1867408C7E72C62DF2C248F33381.nii.gz"},
+        {"image":"3_Test1_Image/Zx3E9F250FDB4CDFDD119C47120154DD2C6F04365B6325F3DD.nii.gz"},
+        {"image":"3_Test1_Image/Zx3FC388FF59A43E76DCBA3C47ABC0E803E488FA570BEDED99.nii.gz"},
+        {"image":"3_Test1_Image/Zx414A94D38319FEB009EF2F13F4CCCF67D3B3D8AC4BDCE87E.nii.gz"},
+        {"image":"3_Test1_Image/Zx44AD1A2E2930231F8A0F7BB197B1676E04B455B6297F02F9.nii.gz"},
+        {"image":"3_Test1_Image/Zx462D1C00BC85CEB1B498D610BEB4C815742BD99BF9D84B27.nii.gz"},
+        {"image":"3_Test1_Image/Zx46314067B5F762DDC67BCF0A3EF1AC783C03FE4A90CBABC5.nii.gz"},
+        {"image":"3_Test1_Image/Zx48074DB9E0145933E2EED0A7E4EB0D3B0A9447A110736D8D.nii.gz"},
+        {"image":"3_Test1_Image/Zx4BDAA35DBBA1FC9A5DBF7CE0974E45ACFDF5183C71F06DD3.nii.gz"},
+        {"image":"3_Test1_Image/Zx4DEAB0155B0B49D713B6346DBE29F387512957A19E1C395F.nii.gz"},
+        {"image":"3_Test1_Image/Zx4ED2135FF0A55C3D290B387F0B5E443E70DA94473B1169A6.nii.gz"},
+        {"image":"3_Test1_Image/Zx4F54B6C5232290798B967948DE6D2D33CB2085006FD32EE9.nii.gz"},
+        {"image":"3_Test1_Image/Zx4FEAB4F8AA64AA6F339F2CDBBF7F4A1D0FE208E6EE5E76E8.nii.gz"},
+        {"image":"3_Test1_Image/Zx52BBC4E7ED7777892AB6E97DF4AD7334895A02CDC8314620.nii.gz"},
+        {"image":"3_Test1_Image/Zx52C5BF85821A07F02621F8A278EF38B09DDB517C9542A645.nii.gz"},
+        {"image":"3_Test1_Image/Zx55393C140B1339C1BC5F7EE2C28DB481D9BC6ECF9EF814ED.nii.gz"},
+        {"image":"3_Test1_Image/Zx55B9557768622554D44DA0BE7934F01CB7B74FBA00FD7F55.nii.gz"},
+        {"image":"3_Test1_Image/Zx561A0194BAFE437E42DC4174960114C23C4D0C91A4B3F0EE.nii.gz"},
+        {"image":"3_Test1_Image/Zx577646F814CED80AB3D413794C12892EEB3B60D14B6215C6.nii.gz"},
+        {"image":"3_Test1_Image/Zx59081DADCE950F832F9112744686936C70AB8F8B6065AFB8.nii.gz"},
+        {"image":"3_Test1_Image/Zx5A55FB599A3CC3C556CC21378C817CAEE33BD3E09767B29F.nii.gz"},
+        {"image":"3_Test1_Image/Zx5E17136591B2A37246BA311D014805D60D28A4B289CEE9D5.nii.gz"},
+        {"image":"3_Test1_Image/Zx5ED8A3BACE488CFAAA89822E730FA5F8002643EA164B4B6A.nii.gz"},
+        {"image":"3_Test1_Image/Zx5FDF7405FE28DC2B7F05E89A4234A1D79A8254B310AB2622.nii.gz"},
+        {"image":"3_Test1_Image/Zx61704E649960C4025BB3AA0B31C1A75C71442BF48DAC3E19.nii.gz"},
+        {"image":"3_Test1_Image/Zx61A82FD417A655FEF3CBDA74333F883F4C966F58FA8875C1.nii.gz"},
+        {"image":"3_Test1_Image/Zx640054B03A4D99000CBF7B9EF10375F672E1AA38EF541280.nii.gz"},
+        {"image":"3_Test1_Image/Zx64D8ABDFA2E7D3055E2ED5D31C600500EC76D713C7BB60CE.nii.gz"},
+        {"image":"3_Test1_Image/Zx660601FDDD18C5026CFAEB6F4F3CAC89508251B9585FCE08.nii.gz"},
+        {"image":"3_Test1_Image/Zx6A20D18C293857B202D0F932B1E918FE4FF89CF55E0A1741.nii.gz"},
+        {"image":"3_Test1_Image/Zx6CFEF464C113FCF5983B9E8586AD70C82296EB86BFC86DEF.nii.gz"},
+        {"image":"3_Test1_Image/Zx6D019E3A69B0605FCE6D0FEFDBE35A8A885394AC5BDD7979.nii.gz"},
+        {"image":"3_Test1_Image/Zx6D019E3A69B0605FEDE60BE518EAE1E353541C5B72C893CE.nii.gz"},
+        {"image":"3_Test1_Image/Zx7031F9BB97AE153DADE975962D6EA993DBD6740AE49A9536.nii.gz"},
+        {"image":"3_Test1_Image/Zx72654315F137ACEAA7C4E715B2C02C79DE59D12727448238.nii.gz"},
+        {"image":"3_Test1_Image/Zx760621E0AF1739CDC30E3925F0FE271EB515E4314C2926EE.nii.gz"},
+        {"image":"3_Test1_Image/Zx7864EB3372794DF83DB16DE28BD8C7BE147782904DA1EA43.nii.gz"},
+        {"image":"3_Test1_Image/Zx79810E662F875E2DCDC4A784D6D1729959C7BA82541D5F07.nii.gz"},
+        {"image":"3_Test1_Image/Zx7A459FA5026054431B669EA98F76009E4AB2F1C298C78833.nii.gz"},
+        {"image":"3_Test1_Image/Zx7D3427750776456FBFC0D290420EA1BB26620ABF358BB33C.nii.gz"},
+        {"image":"3_Test1_Image/Zx7D5AB573090376F74879594BF6B7810FF805022673B201F6.nii.gz"},
+        {"image":"3_Test1_Image/Zx7F411E894A937F74C087D521932763C8800CB193A14168A4.nii.gz"},
+        {"image":"3_Test1_Image/Zx810EEE22A83CEDD08D733E023EF1858017C63E01468C3375.nii.gz"},
+        {"image":"3_Test1_Image/Zx822B1193233F74F58E17D3EB9B97B6EEBBC498274C32B448.nii.gz"},
+        {"image":"3_Test1_Image/Zx826F31C25810C6A92E6879FEAB8C6F0A9E5879FE5C0BCE54.nii.gz"},
+        {"image":"3_Test1_Image/Zx827790BC022017406F3E84D557007B408AFA1BFB53E0E7B7.nii.gz"},
+        {"image":"3_Test1_Image/Zx835BE89BC06B937B44952AA9FFA51254C7B60F8FDDA36FC0.nii.gz"},
+        {"image":"3_Test1_Image/Zx84E867361F7643F909F9AD46A866344BD303DCB0B7422A43.nii.gz"},
+        {"image":"3_Test1_Image/Zx84FAA59C32FC9035A9EADACBD1F04853861DA97718E616A0.nii.gz"},
+        {"image":"3_Test1_Image/Zx851C7A3C539A11B40A6785E54176FC3F76040A4BAC40B927.nii.gz"},
+        {"image":"3_Test1_Image/Zx856FBE2C71AFB86C6974EBD23B9878ED38822BCA17B456F0.nii.gz"},
+        {"image":"3_Test1_Image/Zx85DBFD62B25C76EF9C2376E34C58F850DC14D0C665C55334.nii.gz"},
+        {"image":"3_Test1_Image/Zx86DF1F0CFB8C91DEBBFA15D1990C4F3612BF8E7368659AF4.nii.gz"},
+        {"image":"3_Test1_Image/Zx86F99E7E390C00CBFAEAEDC2A0020694B6FA82354ABACE5C.nii.gz"},
+        {"image":"3_Test1_Image/Zx8772600856FB4699309D69D7B0EF5B44D47F1AE80B7ED96E.nii.gz"},
+        {"image":"3_Test1_Image/Zx895AFA076D05047BBB1EA220348784720B7DAE22A24092D5.nii.gz"},
+        {"image":"3_Test1_Image/Zx8B0832973576598673A6F003640D79CEB483C84607557929.nii.gz"},
+        {"image":"3_Test1_Image/Zx8B2FEAF57D149F9048595E14FA3078891FCA954ECDE95769.nii.gz"},
+        {"image":"3_Test1_Image/Zx8B4DDDE2EF0F838CF94EE3E5A54F490DE1110936ECD0A58B.nii.gz"},
+        {"image":"3_Test1_Image/Zx8D0A1B1F228ED6A8432C127F54D9C7EA84E700AB61F6DD1A.nii.gz"},
+        {"image":"3_Test1_Image/Zx8D496A0DDFCA968C5DC557BCFCEABA6692FBB444199083FD.nii.gz"},
+        {"image":"3_Test1_Image/Zx8E3B91ED97D86D1072C6EA9220FD29DAFB96CD6BB8DC6850.nii.gz"},
+        {"image":"3_Test1_Image/Zx8FA5381E33D4F284AC25A22E03C6A7BA8885155F9886648E.nii.gz"},
+        {"image":"3_Test1_Image/Zx93EC2D1600D91567580248DC875B2DFEC706DD1038674F81.nii.gz"},
+        {"image":"3_Test1_Image/Zx959FD71EF77A62AEF1D80F3C0CAE8BD5F13286FE113791F4.nii.gz"},
+        {"image":"3_Test1_Image/Zx9B15E2FF7223946D2A14BB147A9C3A5C24BBA915A161FB23.nii.gz"},
+        {"image":"3_Test1_Image/Zx9C3E8837FD6AE59582C5B3B20ABF573D9A30A6899BB913B4.nii.gz"},
+        {"image":"3_Test1_Image/Zx9C4D13B3283A0D247EB48FE50B18F5AB681D7EEDADC6BF08.nii.gz"},
+        {"image":"3_Test1_Image/Zx9C4D13B3283A0D24EB8014606E8846EAD2CB820DE4C67567.nii.gz"},
+        {"image":"3_Test1_Image/Zx9C822BD0D1F6C87165C63371AE66D8879468E642C705000A.nii.gz"},
+        {"image":"3_Test1_Image/Zx9E10DB88FC4075E3A7AF9DFEB82AB49DEBB1D9A4F7C862B2.nii.gz"},
+        {"image":"3_Test1_Image/Zx9E72763D18F9E5558F3DF5814A320D734857F2F4AA7DD9B2.nii.gz"},
+        {"image":"3_Test1_Image/ZxA1ABBC6166B65AC2A7937A2159F61BA67D2DA16F3ED4D0FB.nii.gz"},
+        {"image":"3_Test1_Image/ZxA77C7D446989AF14E4D6515139AC3F4E2071BB7CF943664F.nii.gz"},
+        {"image":"3_Test1_Image/ZxA7928107608AC56E5D6A089B9DEBF2583A47AE95DD4FB78F.nii.gz"},
+        {"image":"3_Test1_Image/ZxA8CBC73ECB3DE48C21A02D065EDE60841A43F4CDE41474E6.nii.gz"},
+        {"image":"3_Test1_Image/ZxAA57F4E78EA8967BE55B487212E949020905717B7BD45A6F.nii.gz"},
+        {"image":"3_Test1_Image/ZxAA8B28FA1E8D06C188EE9C18DB8B266482E52379CB2F7B5B.nii.gz"},
+        {"image":"3_Test1_Image/ZxAB18B96AE76F63471C014832B1C113384A4D69696F2FD236.nii.gz"},
+        {"image":"3_Test1_Image/ZxABBAAF0EEA6CBA21DF39AFED984D906B7BD96982F6C06468.nii.gz"},
+        {"image":"3_Test1_Image/ZxAC7AF4D4AA9321200D55CFBA2EABBE92A7E8929F11E2F68D.nii.gz"},
+        {"image":"3_Test1_Image/ZxAC7AF4D4AA932120A68BFD69005A1703DA8A2033BB771129.nii.gz"},
+        {"image":"3_Test1_Image/ZxAC7AF4D4AA932120D6F7CFF7148CFEF0ACD6211715D2252B.nii.gz"},
+        {"image":"3_Test1_Image/ZxAE2B6C5E94A75BE79DE5A69BB833DBADB427371CF1FAEA81.nii.gz"},
+        {"image":"3_Test1_Image/ZxAE3E837D9540D0A43FEEE80E0B043AAB3265CE56B285F842.nii.gz"},
+        {"image":"3_Test1_Image/ZxAE84E65DFAE5468A0E0476F8B943380CE6B004D338BBAA45.nii.gz"},
+        {"image":"3_Test1_Image/ZxAEA8C5DDF7E396A8F82325EDE5CD22DC77292443081D45A4.nii.gz"},
+        {"image":"3_Test1_Image/ZxB072D9EB3C28DC960D25FCDE121C2B12AC3A9003ECB9BA73.nii.gz"},
+        {"image":"3_Test1_Image/ZxB1E0F925241ED36712EE604AE4CE7557A39F4DFB88C99ADB.nii.gz"},
+        {"image":"3_Test1_Image/ZxB534085A5208F3E99AA30C9A94F50BE1C28BE8E70B57963D.nii.gz"},
+        {"image":"3_Test1_Image/ZxB7F4FBA41E566CE60E2832A4D9469B4E243287F8453C0FEC.nii.gz"},
+        {"image":"3_Test1_Image/ZxB8AC2E1E1828B3E4154C4F56DE452017213A2467DBE597A7.nii.gz"},
+        {"image":"3_Test1_Image/ZxBAB5670A04D4D41D52F63DAC2EC24A2A4A63507B496E57F3.nii.gz"},
+        {"image":"3_Test1_Image/ZxBB04FC96C2A0271553C7183885E0469D73C9D57B3995840E.nii.gz"},
+        {"image":"3_Test1_Image/ZxBD701431A8CE2FCBE17870735E9C7ABDEF32D58FA493E633.nii.gz"},
+        {"image":"3_Test1_Image/ZxBD7EA944E5CE4F96C6C2DE27DA76AD6866D739A6BF08D651.nii.gz"},
+        {"image":"3_Test1_Image/ZxBF002BC7F5AFD8F25C9E269D2500DD36732079B9702EFC8F.nii.gz"},
+        {"image":"3_Test1_Image/ZxBF3FC363583711F537B0734C09EF0D0EC1822EF492C8BDD0.nii.gz"},
+        {"image":"3_Test1_Image/ZxC049A25D75C5FC9B7261ECB00B16D05743D36782F8D868F2.nii.gz"},
+        {"image":"3_Test1_Image/ZxC0BF045C0FF2C57FDDFF01992EEFB0239866E7B895606193.nii.gz"},
+        {"image":"3_Test1_Image/ZxC3159DBA2C781D71F3793A251818B7E9B8798E60E914DA7D.nii.gz"},
+        {"image":"3_Test1_Image/ZxC38DBF9E5731EC4DB691765413E5D69788316A6F019A40A9.nii.gz"},
+        {"image":"3_Test1_Image/ZxC47F6DEB1B764D01C01D88E9523BE18C243BD50275F39C11.nii.gz"},
+        {"image":"3_Test1_Image/ZxC603C543C6AFBFCDBD7C4E19389893035928DA4FA999679C.nii.gz"},
+        {"image":"3_Test1_Image/ZxC77F423A0022CBFB1CEAFDEC68518B55EFEB963D13235BA7.nii.gz"},
+        {"image":"3_Test1_Image/ZxC823CFB8F488A6A02B8B88DF93C052ED1B441EE6F73FFF60.nii.gz"},
+        {"image":"3_Test1_Image/ZxC99A216B2CA9144722A9669539FFDFA69F5C56621346CBA1.nii.gz"},
+        {"image":"3_Test1_Image/ZxCA41B3DD150137F93EE879006F0F1FB61973AC29872C8D80.nii.gz"},
+        {"image":"3_Test1_Image/ZxCC42A7155619FA3703EAF742893B8B292D91D0D647A15B0A.nii.gz"},
+        {"image":"3_Test1_Image/ZxCC42A7155619FA3760F34B3728552176A4CD129ABCB96913.nii.gz"},
+        {"image":"3_Test1_Image/ZxCCAD69483E1ACED22A63E8F8200E21C24B4B4FADCF70E81B.nii.gz"},
+        {"image":"3_Test1_Image/ZxCCB3EEF9389115B6F0ECCF3C05DB35F72DF7F4687E2CAAAE.nii.gz"},
+        {"image":"3_Test1_Image/ZxCE42C31F5FC5F2B9EF2F36E7EB5B096F0C7F4F25E2AB0445.nii.gz"},
+        {"image":"3_Test1_Image/ZxD3CB0C4524F67A4D47F1690790F72DB31FECE3ECCB2B6B08.nii.gz"},
+        {"image":"3_Test1_Image/ZxD3F478A29A3B53F594C4567283A5AC0B5C6BA5CB9BF0558E.nii.gz"},
+        {"image":"3_Test1_Image/ZxD4239CF33141275958AA9821650C17F95CB8DEFB66FC2819.nii.gz"},
+        {"image":"3_Test1_Image/ZxD6C4F406BC86A11667A76E66676A79B78A83F5DE3219D466.nii.gz"},
+        {"image":"3_Test1_Image/ZxD728C29B1AB1174904572E02CBD0D1F14DFB3BDDEF751F76.nii.gz"},
+        {"image":"3_Test1_Image/ZxD737ACF4FBC037DDCE79CC95AF6AB5830833237FDE328BB2.nii.gz"},
+        {"image":"3_Test1_Image/ZxDAADCC811EB06CD64F6CD95DA33D7FF99AF478AD17111F24.nii.gz"},
+        {"image":"3_Test1_Image/ZxDAADCC811EB06CD677BC2B725B5D2084623C2BF31273631E.nii.gz"},
+        {"image":"3_Test1_Image/ZxDAADCC811EB06CD6C671F66C50D2AEE8248E6E981702946C.nii.gz"},
+        {"image":"3_Test1_Image/ZxDAECCFA7F3FE9FCE75E371DD91A51C94905CB84252BA61C1.nii.gz"},
+        {"image":"3_Test1_Image/ZxDF24140F6D64020DCE6928DF659EF2DE52AD5E30917AEFC7.nii.gz"},
+        {"image":"3_Test1_Image/ZxE08294E802F8B2087DC270DC9B3AD7B04B736B85E3EF8203.nii.gz"},
+        {"image":"3_Test1_Image/ZxE083D32FF1E7514B2C885A8E1285EB3331934DB0C6A6DCF3.nii.gz"},
+        {"image":"3_Test1_Image/ZxE0AE769C4E0DA3D095EF59A5158D7D0E0FB8881C1C87290D.nii.gz"},
+        {"image":"3_Test1_Image/ZxE1BDE57D85B29E6B1FF4B9DB4EE825804A67EF6AAB90BCCE.nii.gz"},
+        {"image":"3_Test1_Image/ZxE371E276426F15AAE1808E2EE266D836F56FE71105D84CDD.nii.gz"},
+        {"image":"3_Test1_Image/ZxE5CBD5D7C3EBE3E942304BD4EB09A7A83E3BC794E9E33B83.nii.gz"},
+        {"image":"3_Test1_Image/ZxE5D406C8012C9EBE0DC15746B084DF2A1F6045B4C552CDBD.nii.gz"},
+        {"image":"3_Test1_Image/ZxE7E2340E9CF9166B859C8DB0E01A1821AACFD7B6F7C8CC5E.nii.gz"},
+        {"image":"3_Test1_Image/ZxE7E2340E9CF9166BA3E027E0C1D7FC58A90E1BE3552A780A.nii.gz"},
+        {"image":"3_Test1_Image/ZxE7E2340E9CF9166BA6232EE39329B72C09CBCC193F17F22F.nii.gz"},
+        {"image":"3_Test1_Image/ZxEACFC663D819866EDD952D746FCEA3AB7FBD9FC4C8AA43EF.nii.gz"},
+        {"image":"3_Test1_Image/ZxEB847811235EA8F873A7C4C53779694E0E2473C003B04374.nii.gz"},
+        {"image":"3_Test1_Image/ZxECD23E48A996137D78C3EC8056146FCDEDDF7F1299834684.nii.gz"},
+        {"image":"3_Test1_Image/ZxECEBC097C0357F22D220854F3E699B1E6E47D05029D25C35.nii.gz"},
+        {"image":"3_Test1_Image/ZxED6AC7D7D100CB8233964BB488F306113CF2E5D580C44CB7.nii.gz"},
+        {"image":"3_Test1_Image/ZxF180C421408A751F52C2309203D70BA0774A28B4A3020E08.nii.gz"},
+        {"image":"3_Test1_Image/ZxF21344F244DC0BDA3B27BC9E2BB1E8468E51468BB125E264.nii.gz"},
+        {"image":"3_Test1_Image/ZxF2378B53C1470562C06AA771722B99673A4B3E08A476BCE2.nii.gz"},
+        {"image":"3_Test1_Image/ZxF2BAE7BD1B43B020EF0AD7CA4582EA418EE8EC6353284FAE.nii.gz"},
+        {"image":"3_Test1_Image/ZxF332A3871704C6676C1EEFAB7741BDCECE5920E14A3ABB64.nii.gz"},
+        {"image":"3_Test1_Image/ZxF3D2F7AC036135C8A369A42C6D803C3082F2B83D888E3B9F.nii.gz"},
+        {"image":"3_Test1_Image/ZxF3EDCFF4D2AB58B7B3B86A31CCBC22EA51E0B2037419A274.nii.gz"},
+        {"image":"3_Test1_Image/ZxF4E35FFB8721136AAD8B4F59F2EABC53213E2397CC86AF45.nii.gz"},
+        {"image":"3_Test1_Image/ZxF53C2950250724FAFCE85F4EA06C42230601FB1EF6FD2F5F.nii.gz"},
+        {"image":"3_Test1_Image/ZxF5776D71E8D63B2ED23AE03D3AD3E3D608F64D3589C655F0.nii.gz"},
+        {"image":"3_Test1_Image/ZxF6938B66955EC3D5CD0973DF5A2E10245E91AB67F1F7CA12.nii.gz"},
+        {"image":"3_Test1_Image/ZxF71ECCDB9E475A04D81ACE4A25F7238E1CE035DB3D219969.nii.gz"},
+        {"image":"3_Test1_Image/ZxF7D357AEE2A4BBBEFD63CD09EEFA4D04BD73982DD22D224B.nii.gz"},
+        {"image":"3_Test1_Image/ZxF9F4AF14D7B1EF7CC7C36C7350DA3F8C2ABAEF4156220EB5.nii.gz"},
+        {"image":"3_Test1_Image/ZxFD1F717CFC351F53504AE27E08931AC4862A9E958889D91B.nii.gz"},
+        {"image":"3_Test1_Image/ZxFF51EAF10B09D34CAEEEA49B2A8310C1011E389C1AFE6C8B.nii.gz"}
+    ],
+    "training": [
+        {
+            "image": "1_Train,Valid_Image/Zx00AD16F8B97A53DE6E7CFE260BDF122F0E655659A3DF1628.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx00AD16F8B97A53DE6E7CFE260BDF122F0E655659A3DF1628_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx00FE1B9A88E88C71CF81D0736F23E88BB9C35E2BCDECF501.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx00FE1B9A88E88C71CF81D0736F23E88BB9C35E2BCDECF501_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx00FE1B9A88E88C71F8D11F50C2B5FBFEB3461E67BE1E83B8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx00FE1B9A88E88C71F8D11F50C2B5FBFEB3461E67BE1E83B8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx014E4DF04789E7E61C3B4876CE4D122DC14E0BB842E42E7D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx014E4DF04789E7E61C3B4876CE4D122DC14E0BB842E42E7D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx016CBC4284052F6A74A56DAFFB0B39B95D4DEC066028AA4A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx016CBC4284052F6A74A56DAFFB0B39B95D4DEC066028AA4A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx018905C639589E81D4C91553041B845F583C3365B076C8E1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx018905C639589E81D4C91553041B845F583C3365B076C8E1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx01F90B532F87127D864B9194B92EDDC3B0EA988ABB5E1D1C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx01F90B532F87127D864B9194B92EDDC3B0EA988ABB5E1D1C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx039B4A139FC862D542D2AACC247C46DFCE9EAA705B5DEF40.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx039B4A139FC862D542D2AACC247C46DFCE9EAA705B5DEF40_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx04424F2CF83E0AD3059C7706FBE311FDC83AAA8265D2325D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx04424F2CF83E0AD3059C7706FBE311FDC83AAA8265D2325D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx04424F2CF83E0AD3DDF3CC99A41482D909CBC495238F2FEC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx04424F2CF83E0AD3DDF3CC99A41482D909CBC495238F2FEC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx052D253409F40A03B71D313382692559FB09F771A41F754A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx052D253409F40A03B71D313382692559FB09F771A41F754A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0534778884B0E2267FCC4CF2BBF361589CD1D845F4A9C9DB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0534778884B0E2267FCC4CF2BBF361589CD1D845F4A9C9DB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx05576CE976F91BF416232FAF4CDF5F6C5DF852ADCA2B9DD8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx05576CE976F91BF416232FAF4CDF5F6C5DF852ADCA2B9DD8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx06DF7CE50F0A454CB7E53B3918C49334BFB49CACC36B7438.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx06DF7CE50F0A454CB7E53B3918C49334BFB49CACC36B7438_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx07C5208D04A267A61BFB6EC968FBBB3DF25C245A6893273D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx07C5208D04A267A61BFB6EC968FBBB3DF25C245A6893273D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0800DE5C96380322A41C31B46264D40D1B72FEC49745785C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0800DE5C96380322A41C31B46264D40D1B72FEC49745785C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0800DE5C96380322E442453B99E25D6F1282F2C4A610A497.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0800DE5C96380322E442453B99E25D6F1282F2C4A610A497_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx081F9B5A0C06A23AE10DC1E14E6B9B4DFC71FBCF3B559AEB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx081F9B5A0C06A23AE10DC1E14E6B9B4DFC71FBCF3B559AEB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx08DA48B45B5C7D0182C369B8E0B013CAF9EEA43199E8AFEF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx08DA48B45B5C7D0182C369B8E0B013CAF9EEA43199E8AFEF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx09413D933AD838CE8DB00704AB349855FE4721FC26037F37.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx09413D933AD838CE8DB00704AB349855FE4721FC26037F37_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx09D290397499695039422FD2002292BD781E5203436441A3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx09D290397499695039422FD2002292BD781E5203436441A3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx09D29039749969505F54A1E8982B5BF5670F5EEABAE98ECF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx09D29039749969505F54A1E8982B5BF5670F5EEABAE98ECF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0A5FF3169135AF89B21F2A97A7278E517EC8B499B0F14C20.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0A5FF3169135AF89B21F2A97A7278E517EC8B499B0F14C20_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0AA2C956EEA5EAEA0DC0DA2606A8F8D0F334B97FDD860E1F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0AA2C956EEA5EAEA0DC0DA2606A8F8D0F334B97FDD860E1F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0B06041DB37FAF0160B564B48791D3B58804B731DD57F4AB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0B06041DB37FAF0160B564B48791D3B58804B731DD57F4AB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0BCA7F5108A7E8BCC2AB6094DE20A5C243897FCB0C82E20A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0BCA7F5108A7E8BCC2AB6094DE20A5C243897FCB0C82E20A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0C72F2127A469CAA6A49C516DC18B2706A43700721B5D8AB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0C72F2127A469CAA6A49C516DC18B2706A43700721B5D8AB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0CAA076280D8EBEAA52926C4C6F1DB221F5C58F6EC8B2593.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0CAA076280D8EBEAA52926C4C6F1DB221F5C58F6EC8B2593_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0CE3BA2363A72325A7BB82B688463DBB79D224C67883F062.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0CE3BA2363A72325A7BB82B688463DBB79D224C67883F062_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0CFEAEA49D4E19D1219A4C230C6D82751179B29EE9CA9F49.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0CFEAEA49D4E19D1219A4C230C6D82751179B29EE9CA9F49_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0D204781E3C58AD6EB37CC2E6EC18B935B00F9CC5D987220.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0D204781E3C58AD6EB37CC2E6EC18B935B00F9CC5D987220_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0E392B7839BC0EDBDA8BEAC12F819B61409DC2804FB3F997.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0E392B7839BC0EDBDA8BEAC12F819B61409DC2804FB3F997_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0E3C20D9BB248666701B02B803ECE6BC4306B85A53E6DE38.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0E3C20D9BB248666701B02B803ECE6BC4306B85A53E6DE38_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx0E64921E82ED12C88791307B1B09E979ADC3FBD3845D3927.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx0E64921E82ED12C88791307B1B09E979ADC3FBD3845D3927_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1060A72A4F5C5FFE63F395F263138C39C901CEA1B608B5D3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1060A72A4F5C5FFE63F395F263138C39C901CEA1B608B5D3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx10E5A02B21E2368FB1C4CE0CBD7EFC890FAA56ECB35CBED2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx10E5A02B21E2368FB1C4CE0CBD7EFC890FAA56ECB35CBED2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx117267214EB944C6E8593100AAC6E8FE5D47143C67350F53.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx117267214EB944C6E8593100AAC6E8FE5D47143C67350F53_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx11E4702AA837EC465D5D80C1BC23104AD4388C527E94033D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx11E4702AA837EC465D5D80C1BC23104AD4388C527E94033D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12530E751E5315C37CEE489CA53DAD4806EAF276AEC9F18B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12530E751E5315C37CEE489CA53DAD4806EAF276AEC9F18B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12530E751E5315C38EEF85D4C1B0308338838B8C2983106D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12530E751E5315C38EEF85D4C1B0308338838B8C2983106D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12530E751E5315C3F09F11CFCE42D6BA786BE280C8BA5C5D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12530E751E5315C3F09F11CFCE42D6BA786BE280C8BA5C5D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12CD0450CBDF59B92B8BFF3AE5296DF73C619990C8117DCE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12CD0450CBDF59B92B8BFF3AE5296DF73C619990C8117DCE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12E8C030B31F39B52D2C9FA262B92370A9C7BAFDA12373AF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12E8C030B31F39B52D2C9FA262B92370A9C7BAFDA12373AF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12E8C030B31F39B5C0374AE9C7AA0FD527E0F819E430AA4D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12E8C030B31F39B5C0374AE9C7AA0FD527E0F819E430AA4D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx12E8C030B31F39B5C62831916119C7108A9A7C2EA7625746.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx12E8C030B31F39B5C62831916119C7108A9A7C2EA7625746_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx13380F22EFEA0B62205EC17938D2A84A71C8153C1D25B7CF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx13380F22EFEA0B62205EC17938D2A84A71C8153C1D25B7CF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx14087FD7C271A7D92C0F8CF2AD8131123F9C59DAE6DA5705.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx14087FD7C271A7D92C0F8CF2AD8131123F9C59DAE6DA5705_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx14E419FB0929647C385FCFE5FC3DE04521DBD602302EC152.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx14E419FB0929647C385FCFE5FC3DE04521DBD602302EC152_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx14E419FB0929647CE43F1FACB88A1F623BAF9D0F6836372F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx14E419FB0929647CE43F1FACB88A1F623BAF9D0F6836372F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx15FB4DF1D36A7B4AA9B00B4D8DE5B757A9EDD1490640008D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx15FB4DF1D36A7B4AA9B00B4D8DE5B757A9EDD1490640008D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx15FB4DF1D36A7B4AD94C813D415FA88503C2381519A8357D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx15FB4DF1D36A7B4AD94C813D415FA88503C2381519A8357D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx162F641C827B6EE83C571BF7AEA8A018024AC788B8C0B158.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx162F641C827B6EE83C571BF7AEA8A018024AC788B8C0B158_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx16D93043D5D4E4D3393FB6C9DC8E305AA39CC4FCDD1B952F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx16D93043D5D4E4D3393FB6C9DC8E305AA39CC4FCDD1B952F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx171AFF296B798AB089F4652DF7A4E18DF96CFEE1B08244E8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx171AFF296B798AB089F4652DF7A4E18DF96CFEE1B08244E8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx171AFF296B798AB09AD7911E3669EB7736CE2062AE9F80DA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx171AFF296B798AB09AD7911E3669EB7736CE2062AE9F80DA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx17405CFB23569FC22C6738129E6305B6EF0398BE89533406.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx17405CFB23569FC22C6738129E6305B6EF0398BE89533406_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1843C96056436B4D01517C950238025999165FE4A16A8110.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1843C96056436B4D01517C950238025999165FE4A16A8110_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1843C96056436B4D91A7A4727E773B3964907516AA7E203F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1843C96056436B4D91A7A4727E773B3964907516AA7E203F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1882493D839CC3171D0FEA7AE764BB5BC308D707E75CCB60.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1882493D839CC3171D0FEA7AE764BB5BC308D707E75CCB60_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx188AD4803C40A1FBE691B933154BA5659529C18A8032265F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx188AD4803C40A1FBE691B933154BA5659529C18A8032265F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1950A84DEF7878F0254E551A842C621B4740CE91E85CE8E2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1950A84DEF7878F0254E551A842C621B4740CE91E85CE8E2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1950A84DEF7878F043E3BB7A5D65E310BC050172FCA7CC14.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1950A84DEF7878F043E3BB7A5D65E310BC050172FCA7CC14_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1950A84DEF7878F0CDEE2AE1E07365E7C7F651215ED72155.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1950A84DEF7878F0CDEE2AE1E07365E7C7F651215ED72155_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1950A84DEF7878F0F9E32AF9F820CA049C5880BA46C37601.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1950A84DEF7878F0F9E32AF9F820CA049C5880BA46C37601_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1950A84DEF7878F0FA4F817AEE5D56DF2534349D8C94B8F5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1950A84DEF7878F0FA4F817AEE5D56DF2534349D8C94B8F5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1977ADC4FB423A510927DE5147FA1581381604AC0BB7E825.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1977ADC4FB423A510927DE5147FA1581381604AC0BB7E825_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx19A878BE9D7FCDD564CF0D0630D0E05F305D03B734E6FBE5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx19A878BE9D7FCDD564CF0D0630D0E05F305D03B734E6FBE5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx19DC911CF61B42EE4F9E967F39224A9297426E7C6AC03D8E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx19DC911CF61B42EE4F9E967F39224A9297426E7C6AC03D8E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1A447D96D387B7C45053917769DF2A154E9A765A87D51A24.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1A447D96D387B7C45053917769DF2A154E9A765A87D51A24_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1A5E6FEE5BA94F6D9C91E1BBACAE6959AB96EB6442A0524B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1A5E6FEE5BA94F6D9C91E1BBACAE6959AB96EB6442A0524B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1A8AFCB885E0D8BC44A0ED9AEF59DD90D90777A8345747EE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1A8AFCB885E0D8BC44A0ED9AEF59DD90D90777A8345747EE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1AC280D33D45A2973879438429EB6E09CB3DF1914B26DED8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1AC280D33D45A2973879438429EB6E09CB3DF1914B26DED8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1BBA21D9DA37F2D063D4A85F624E8D72C0410728E334B442.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1BBA21D9DA37F2D063D4A85F624E8D72C0410728E334B442_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1BDF4C967678080E6779C2713B10F3B23CE3C1CC7F2CC8BB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1BDF4C967678080E6779C2713B10F3B23CE3C1CC7F2CC8BB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1C6B814369828D2A1FE29B8B7CD4D21752A8CB1AE56781F5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1C6B814369828D2A1FE29B8B7CD4D21752A8CB1AE56781F5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1D4DA6EB30F0E21BAE9B15E262721240DDC420DD988AAC16.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1D4DA6EB30F0E21BAE9B15E262721240DDC420DD988AAC16_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1E550FA95B8A7552A06CE65E3BEED1EE034D46B71AC2990F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1E550FA95B8A7552A06CE65E3BEED1EE034D46B71AC2990F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1ECC8B15EE2388642B2C05331250EEB951BE580304D38622.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1ECC8B15EE2388642B2C05331250EEB951BE580304D38622_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1ED66EE4F0492C4C63EED347F5480C328DED4C1955880614.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1ED66EE4F0492C4C63EED347F5480C328DED4C1955880614_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1F0951EDF2B31E5E932707FD021961BFCF8586E917ABD120.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1F0951EDF2B31E5E932707FD021961BFCF8586E917ABD120_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1F0C08B15A2FA4B85694E240248D208FBA9CDCFA1B19D3E5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1F0C08B15A2FA4B85694E240248D208FBA9CDCFA1B19D3E5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1F2D6E616335D5D7A26B93C9CBB01658781603DFF3B46DF8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1F2D6E616335D5D7A26B93C9CBB01658781603DFF3B46DF8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx1F83D85BC2A7A55A165937332E32D7646399FC21D7283669.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx1F83D85BC2A7A55A165937332E32D7646399FC21D7283669_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2030E3E34625286F57D63B10F1912D4A18F991C22F6463A1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2030E3E34625286F57D63B10F1912D4A18F991C22F6463A1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2030E3E34625286FAA000B1D4CFF2D07BD489B513C82E9A8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2030E3E34625286FAA000B1D4CFF2D07BD489B513C82E9A8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx208D824934941221A20E8F9C315A6AF45B61E20DB5B3F4E5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx208D824934941221A20E8F9C315A6AF45B61E20DB5B3F4E5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx20BDA35C14C29E61E035F264496CD4F4F97D288082512F40.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx20BDA35C14C29E61E035F264496CD4F4F97D288082512F40_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx213F87C44A60B71BFE117EB0EB9A5870E0CEB9197701FF60.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx213F87C44A60B71BFE117EB0EB9A5870E0CEB9197701FF60_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx215A14F9057233B70538C32D1748F817319662FD34E6690A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx215A14F9057233B70538C32D1748F817319662FD34E6690A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx220A8CBFA565CB8498E6FB702C7E03B920F2361EE7B62A6D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx220A8CBFA565CB8498E6FB702C7E03B920F2361EE7B62A6D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx22D56AA7E544151923FF1A90F02F59919EC170C85187649E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx22D56AA7E544151923FF1A90F02F59919EC170C85187649E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx239BC1FBE61089C9B2368A86E36BDF3136292547D9C0EBC4.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx239BC1FBE61089C9B2368A86E36BDF3136292547D9C0EBC4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx23BEFE24BACE6B24798B7B8ADA70E5DE0151270247B6EB07.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx23BEFE24BACE6B24798B7B8ADA70E5DE0151270247B6EB07_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx23BEFE24BACE6B249C37C240B74348796802474012995344.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx23BEFE24BACE6B249C37C240B74348796802474012995344_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx23CE39ADA19715437B08F04B4F1E962B9E854E1DE01B814F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx23CE39ADA19715437B08F04B4F1E962B9E854E1DE01B814F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx23F8F44ED97A93B2C3487F13DBE296C7A694804866EFF350.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx23F8F44ED97A93B2C3487F13DBE296C7A694804866EFF350_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx246E98149CE2B848DD11D93B1DAC382E56997966B5FB4B1A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx246E98149CE2B848DD11D93B1DAC382E56997966B5FB4B1A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx24711EE075325408C49B564C1D646B2F1A6BE15A31716D85.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx24711EE075325408C49B564C1D646B2F1A6BE15A31716D85_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx247C48E8B7D1EABBA1DEF5CD4AC1D8E8ACAFA8C759A85107.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx247C48E8B7D1EABBA1DEF5CD4AC1D8E8ACAFA8C759A85107_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx25DFF1358FA299AFD313E29BFC17C150096D2B97BDB7E2ED.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx25DFF1358FA299AFD313E29BFC17C150096D2B97BDB7E2ED_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx25DFF1358FA299AFF037CA3B98580B73B25B4E2B3B4172F3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx25DFF1358FA299AFF037CA3B98580B73B25B4E2B3B4172F3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx265C799B18CE4D6DE5A3671D65F5B018D713919204868A0F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx265C799B18CE4D6DE5A3671D65F5B018D713919204868A0F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2727C103B14E93A07709A14282274DD35B6A23AA6127CB0B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2727C103B14E93A07709A14282274DD35B6A23AA6127CB0B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx27ECA58C0AE0031815C0AE04CA9002F10E1FCB7F5686AE48.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx27ECA58C0AE0031815C0AE04CA9002F10E1FCB7F5686AE48_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx28C2905F39B77B64E242963BF9BA3069E135FDCC8A782720.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx28C2905F39B77B64E242963BF9BA3069E135FDCC8A782720_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx28CA9394EF10537307B5B8DDC24D756E20354ED9E8B3237A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx28CA9394EF10537307B5B8DDC24D756E20354ED9E8B3237A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx29249C3340706D8A658BC96F288DE057693CDCA0C50018FF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx29249C3340706D8A658BC96F288DE057693CDCA0C50018FF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2933A24F5182C585C1ADECFA9FF9EDDB3F9432CBB9E30A24.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2933A24F5182C585C1ADECFA9FF9EDDB3F9432CBB9E30A24_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx29D944DDC12D73E641FD78628DA3CCDAD0CCD13F9C098056.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx29D944DDC12D73E641FD78628DA3CCDAD0CCD13F9C098056_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2A3C9F90B97FC5CF48D8F0046D61E7AA7B868D85B83054AE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2A3C9F90B97FC5CF48D8F0046D61E7AA7B868D85B83054AE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2AAE948072335FDABDFFA2D972B5638F4069A5D8D0B432B8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2AAE948072335FDABDFFA2D972B5638F4069A5D8D0B432B8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2AB19BB5DD94C321AF90101CD847A97A335713B9A85CD6E3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2AB19BB5DD94C321AF90101CD847A97A335713B9A85CD6E3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2AF7910D2CCF58C07FF4E3EFC228F15E7DBD8E71193CA7BF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2AF7910D2CCF58C07FF4E3EFC228F15E7DBD8E71193CA7BF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2B401975A0A7FE26B9906E1047BB2A92BC4D80CCC69F0DC8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2B401975A0A7FE26B9906E1047BB2A92BC4D80CCC69F0DC8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2B7652752183E77F7E8BC4D7F8608C151B41BFCA53475095.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2B7652752183E77F7E8BC4D7F8608C151B41BFCA53475095_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2BDF57DC47BEBC12497878BED38545FC731D32F176C58DC9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2BDF57DC47BEBC12497878BED38545FC731D32F176C58DC9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2BDF57DC47BEBC12CC3C156DC1BCE0C07D16D40692007D96.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2BDF57DC47BEBC12CC3C156DC1BCE0C07D16D40692007D96_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2D43BBDA962A8DC656EF3C61E52CC75604BAD0E6AD08F938.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2D43BBDA962A8DC656EF3C61E52CC75604BAD0E6AD08F938_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2DD7E0642A4827E03C235724922D866A37D619A859B89A73.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2DD7E0642A4827E03C235724922D866A37D619A859B89A73_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2DFEA8EA90862E241A9E13821C48D3B2E872D0C2A8A32B0B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2DFEA8EA90862E241A9E13821C48D3B2E872D0C2A8A32B0B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2E05E179442C54DBB858D2E4A4793809F073143901DE68FF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2E05E179442C54DBB858D2E4A4793809F073143901DE68FF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2E37BB6B0F79F459E7F8431E590AE9020866183BAC616B5E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2E37BB6B0F79F459E7F8431E590AE9020866183BAC616B5E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2FA626656496845ED534D6B5B760541A21647F2F5D42B581.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2FA626656496845ED534D6B5B760541A21647F2F5D42B581_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2FA626656496845ED6C525AEB7549C132AA41B54CE30EA53.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2FA626656496845ED6C525AEB7549C132AA41B54CE30EA53_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx2FDB8744E9FC6EA5EF801273D38E91C4DF8A76ABD71C8668.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx2FDB8744E9FC6EA5EF801273D38E91C4DF8A76ABD71C8668_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3093899D9E29307AC4914C2AADFC81EE001ADB65AC761C42.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3093899D9E29307AC4914C2AADFC81EE001ADB65AC761C42_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx30EB98600B79F8C276472CFEDB2C86FD69F24202CC043683.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx30EB98600B79F8C276472CFEDB2C86FD69F24202CC043683_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3140C2C02EDB97CF639FD86D9858631782AA626B70EBD723.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3140C2C02EDB97CF639FD86D9858631782AA626B70EBD723_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx31F5838671135830967C7971C05599F30898ECE6B723A12B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx31F5838671135830967C7971C05599F30898ECE6B723A12B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx31F707B0E35DF9B8B4A76C9966A99CF199418456428E600C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx31F707B0E35DF9B8B4A76C9966A99CF199418456428E600C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx328EF1C62C85DF795D818DD80646CAB28474E58B37DFEDA1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx328EF1C62C85DF795D818DD80646CAB28474E58B37DFEDA1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx33560A1F5550D0D3F5A3877D204D89E91636D7B0E10E71F0.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx33560A1F5550D0D3F5A3877D204D89E91636D7B0E10E71F0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx339923E0B41545328BB08A03DF57E5D8769CDC9340662F72.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx339923E0B41545328BB08A03DF57E5D8769CDC9340662F72_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx34C115FB55D8474D6F19B61FC5388EE4CF710E60F31443C5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx34C115FB55D8474D6F19B61FC5388EE4CF710E60F31443C5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx357B92BC3020A6B71E71EAAE33CC0DF854572A263A40A123.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx357B92BC3020A6B71E71EAAE33CC0DF854572A263A40A123_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A6039A604D4E5030CDE9F1D1B8E4B25F23.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A6039A604D4E5030CDE9F1D1B8E4B25F23_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A68C78E99308353E84782E6E91469ECDC3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A68C78E99308353E84782E6E91469ECDC3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A69C4D5E5FF5C1FF0B522175A77B8C4CB2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A69C4D5E5FF5C1FF0B522175A77B8C4CB2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A69FFB90491C3F4F8A7CCC1928F15531FE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A69FFB90491C3F4F8A7CCC1928F15531FE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A6FB73B987CF05071ECC712D25113641E4.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A6FB73B987CF05071ECC712D25113641E4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx35E3E6E7CBA729A6FC8BC9B2BD86D23A421B431FF734CD90.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx35E3E6E7CBA729A6FC8BC9B2BD86D23A421B431FF734CD90_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx368E67F85BF96985DC439B3FE00ABF3E804296FA6D8C771B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx368E67F85BF96985DC439B3FE00ABF3E804296FA6D8C771B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx36B440051EEC06B876C7C58CC95BE6A4967D53C10BED4B2D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx36B440051EEC06B876C7C58CC95BE6A4967D53C10BED4B2D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx379B34C33DA0FAC86BD8ADFCFC1B2CF739D4C90FEFD47551.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx379B34C33DA0FAC86BD8ADFCFC1B2CF739D4C90FEFD47551_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx37CF014F6D0060337C7856CEE7CB09E488C90A330822072D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx37CF014F6D0060337C7856CEE7CB09E488C90A330822072D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx37F988F53E9C391591766FE9726D7E92F0D6153B245C18BC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx37F988F53E9C391591766FE9726D7E92F0D6153B245C18BC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3889EF0BF9B77B23721E34BC2031D10FE9DF1A9419F4BB2E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3889EF0BF9B77B23721E34BC2031D10FE9DF1A9419F4BB2E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx392DC2738CF9E3FE3D894559CF117E10EF36BBDC218E7896.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx392DC2738CF9E3FE3D894559CF117E10EF36BBDC218E7896_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx396059C7C80AF72A2B9B5987A8DB6F28222500A9F881535A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx396059C7C80AF72A2B9B5987A8DB6F28222500A9F881535A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3A219BC45F1B5BAB2AF0AFDABDA623D33DD885F24C4D36CE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3A219BC45F1B5BAB2AF0AFDABDA623D33DD885F24C4D36CE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3A3EABEA40351DA0CAFC4329114A1D243B5675706C49F661.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3A3EABEA40351DA0CAFC4329114A1D243B5675706C49F661_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3A5E7419657D5644214B6C229CD7862ED9D7FC5DBFBD56F6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3A5E7419657D5644214B6C229CD7862ED9D7FC5DBFBD56F6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3A5E7419657D5644ED0DF48D1BD528DE82D174588DE43B26.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3A5E7419657D5644ED0DF48D1BD528DE82D174588DE43B26_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3AB91ED4F2F9AA3B7A57258D3F98FCCD7E26E12DDE6A45B3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3AB91ED4F2F9AA3B7A57258D3F98FCCD7E26E12DDE6A45B3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3B1D6C9714B7C54C43C7170067F7F17876E134172A8F59AF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3B1D6C9714B7C54C43C7170067F7F17876E134172A8F59AF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3BBC3ED501BABA5D16E5B523FCD04D4C2AB0E94792A4401E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3BBC3ED501BABA5D16E5B523FCD04D4C2AB0E94792A4401E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3C73BAEB9FF5DF9B3A6958528BDC3FC0CA1D8180877BACB7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3C73BAEB9FF5DF9B3A6958528BDC3FC0CA1D8180877BACB7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3C911819A0051992F399041B71D79C707FB5FD77A1B605A8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3C911819A0051992F399041B71D79C707FB5FD77A1B605A8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3CAF1DB7C360026E40C13D13A8990245800B461709D2A425.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3CAF1DB7C360026E40C13D13A8990245800B461709D2A425_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3CAF1DB7C360026EC045CCBAF6DD38283021AEF22B25D811.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3CAF1DB7C360026EC045CCBAF6DD38283021AEF22B25D811_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3CDC546A37075405DFB8BF11A7BE8449A084A84EF4EA554E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3CDC546A37075405DFB8BF11A7BE8449A084A84EF4EA554E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3CDCA9F641D62305C95CE3BD60D231589DA1BB1068CDC923.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3CDCA9F641D62305C95CE3BD60D231589DA1BB1068CDC923_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3CF258177C07C53E74433236D3E2AC22B45A8FFEC3DF495E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3CF258177C07C53E74433236D3E2AC22B45A8FFEC3DF495E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3D2CD874E8BDB341DEA1814FADD0130D265176FA561C0799.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3D2CD874E8BDB341DEA1814FADD0130D265176FA561C0799_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3D83B53CBABAA156CAF6096C44B4820E38236E4FB31E4A61.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3D83B53CBABAA156CAF6096C44B4820E38236E4FB31E4A61_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3D9CAD8F3C4AD007279632AA3B99D80B2120EC4D76E81C98.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3D9CAD8F3C4AD007279632AA3B99D80B2120EC4D76E81C98_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3E54BDA9793D4E7B0A260267CD3901E9B5ADECDD307E0E32.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3E54BDA9793D4E7B0A260267CD3901E9B5ADECDD307E0E32_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3EE32B570B8DB6863F4DA6447AE91C61D04AFF02F7E64F04.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3EE32B570B8DB6863F4DA6447AE91C61D04AFF02F7E64F04_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3EFC704096878550259560DBD492CCDAC89B53588BA1B90B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3EFC704096878550259560DBD492CCDAC89B53588BA1B90B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3F0AA5B24089383F0C3CCA7C081EF5810B5C8B85C069D780.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3F0AA5B24089383F0C3CCA7C081EF5810B5C8B85C069D780_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx3FBF0E56F75857106A79F089DD99578868683577250E1038.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx3FBF0E56F75857106A79F089DD99578868683577250E1038_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx401C2F09F8961880B81DE71DC3591264C061FA1F64536698.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx401C2F09F8961880B81DE71DC3591264C061FA1F64536698_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx40816DF96E52884DF695E52EF19263822DE95B49F0649B4B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx40816DF96E52884DF695E52EF19263822DE95B49F0649B4B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx40F840D637C6BE3A1BE6C9EC9082C0F9FC4989466ABF83AD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx40F840D637C6BE3A1BE6C9EC9082C0F9FC4989466ABF83AD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx40F840D637C6BE3A6FE087E78441E9BEEADE6FB46EED707E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx40F840D637C6BE3A6FE087E78441E9BEEADE6FB46EED707E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx412666ED5D058647EA3C1C62B7B2E3EA254193AAC85F3CC1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx412666ED5D058647EA3C1C62B7B2E3EA254193AAC85F3CC1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx418C74DF2B303C5B8E30971984584650747FFD8B71B7CF90.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx418C74DF2B303C5B8E30971984584650747FFD8B71B7CF90_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx41EBD2C0D9F5ED631FEF89B057AA2B0E20A73098795E7D69.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx41EBD2C0D9F5ED631FEF89B057AA2B0E20A73098795E7D69_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4266C1F9BEFA9C6A16FD59791D1CC9569A8EB0209378ED9A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4266C1F9BEFA9C6A16FD59791D1CC9569A8EB0209378ED9A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4266C1F9BEFA9C6A74B3118E30AB5E08510E6818B3513FB9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4266C1F9BEFA9C6A74B3118E30AB5E08510E6818B3513FB9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4266C1F9BEFA9C6AA0DE3C909EB501A8AB41DBF83C8A0110.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4266C1F9BEFA9C6AA0DE3C909EB501A8AB41DBF83C8A0110_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4266C1F9BEFA9C6AAEE9EF65BFE5E6191A7B2B2AB0382526.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4266C1F9BEFA9C6AAEE9EF65BFE5E6191A7B2B2AB0382526_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx427D8F8A6DEFF9BF7B2EF54E37E95B76F6153BDFDE9D9A48.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx427D8F8A6DEFF9BF7B2EF54E37E95B76F6153BDFDE9D9A48_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx427D8F8A6DEFF9BF809FB207806C6707A43B2B9D9E3D4E72.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx427D8F8A6DEFF9BF809FB207806C6707A43B2B9D9E3D4E72_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4285BE9103DDFF6D87B65634773FDAA54C9C783C27505529.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4285BE9103DDFF6D87B65634773FDAA54C9C783C27505529_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx436CAA0C532C93523AA7FB9BC51F9A3737EAFA1D61767CC4.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx436CAA0C532C93523AA7FB9BC51F9A3737EAFA1D61767CC4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx43FC969EA95F318B07022BABAE9D90249E0CFACFF25F792B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx43FC969EA95F318B07022BABAE9D90249E0CFACFF25F792B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx441D6426B1525578210227CCB9A039239447D429709EFAF7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx441D6426B1525578210227CCB9A039239447D429709EFAF7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx447638CD7DD8D149C3BEF257EABAABF4C46F734C71AE6981.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx447638CD7DD8D149C3BEF257EABAABF4C46F734C71AE6981_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx447638CD7DD8D149D3B2E284E3E26B33E9999753A141C5C8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx447638CD7DD8D149D3B2E284E3E26B33E9999753A141C5C8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx44DDADDF8B1E5B444E883375CD5462450F3905013F5C97C7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx44DDADDF8B1E5B444E883375CD5462450F3905013F5C97C7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4553C091B4BEFA9D501DF368358E07BAD8C6CB96EF0E3653.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4553C091B4BEFA9D501DF368358E07BAD8C6CB96EF0E3653_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4553C091B4BEFA9D8CC7280E593AFF94F9E98724858A0654.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4553C091B4BEFA9D8CC7280E593AFF94F9E98724858A0654_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx455FA34A3BE4D468CEECAB6E05B340B28E79975DC74FB194.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx455FA34A3BE4D468CEECAB6E05B340B28E79975DC74FB194_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx45F13921C226C17F102A4F606603CDDBEA75BE28A72E2BE0.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx45F13921C226C17F102A4F606603CDDBEA75BE28A72E2BE0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx45F13921C226C17F462A75B6CC7838AA21C2D3021AC18ACC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx45F13921C226C17F462A75B6CC7838AA21C2D3021AC18ACC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx45F13921C226C17F9A7B30076DC71FEFEF892B3B7EF4B61E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx45F13921C226C17F9A7B30076DC71FEFEF892B3B7EF4B61E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx45FD7D8A9273DD8852F512C92FB230C54878555B75598939.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx45FD7D8A9273DD8852F512C92FB230C54878555B75598939_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx46869E52A3F149236E92AFF4B153AF238C79D10725FA71D7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx46869E52A3F149236E92AFF4B153AF238C79D10725FA71D7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx46869E52A3F149239D84F215C0B9EDB557D049DAE7C12BED.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx46869E52A3F149239D84F215C0B9EDB557D049DAE7C12BED_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx46924D16A41AB87F8EA418222C570A092D58F528C0E17C9C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx46924D16A41AB87F8EA418222C570A092D58F528C0E17C9C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx46E8D3737980BCE318ECFF231D8E8E68BADF834D2C904812.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx46E8D3737980BCE318ECFF231D8E8E68BADF834D2C904812_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx46E8D3737980BCE3A7193955279C6617A926C56BF6DC2916.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx46E8D3737980BCE3A7193955279C6617A926C56BF6DC2916_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4725243262554FDC2B80C3627CAE5B3951CB1B81134D392D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4725243262554FDC2B80C3627CAE5B3951CB1B81134D392D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4725243262554FDCE62048D48AED30EB82CCA45F300E2133.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4725243262554FDCE62048D48AED30EB82CCA45F300E2133_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx47787568849DA67380F1BECE18D8185F851E92DEB0B22466.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx47787568849DA67380F1BECE18D8185F851E92DEB0B22466_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx47787568849DA673E708BFD5C10F6C55109F48B2BD0220CF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx47787568849DA673E708BFD5C10F6C55109F48B2BD0220CF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx47F849224B4386F1F88873AE64402F3E1783E527C68B174C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx47F849224B4386F1F88873AE64402F3E1783E527C68B174C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx48E620D924CB07B41E645DBEC9D7AA57AE2EAC78CA45BC5A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx48E620D924CB07B41E645DBEC9D7AA57AE2EAC78CA45BC5A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx496C13E394BED37D1BCB2A89DBC1FECFAE893DEB04DC773D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx496C13E394BED37D1BCB2A89DBC1FECFAE893DEB04DC773D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4A3A3EB7F67074DEA9C5668137108C5BDFFE5AD82B6C9968.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4A3A3EB7F67074DEA9C5668137108C5BDFFE5AD82B6C9968_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4B3FCDA4F002E6F7DC5B4E3A1C0B374F878D53CD81E1E43A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4B3FCDA4F002E6F7DC5B4E3A1C0B374F878D53CD81E1E43A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4B6596BC6B8F4E453F94CD18A4F442557E1C337ABE838769.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4B6596BC6B8F4E453F94CD18A4F442557E1C337ABE838769_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4B6596BC6B8F4E45528220BA49716ABC5A1D36C7AB70748C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4B6596BC6B8F4E45528220BA49716ABC5A1D36C7AB70748C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4BBBE8ED4ABA846DB16B6B6D6836D742D8EF280D0E45CD33.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4BBBE8ED4ABA846DB16B6B6D6836D742D8EF280D0E45CD33_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4C840C22A6CE7B1E6D6CFD56353E464340097A6A450AD1FF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4C840C22A6CE7B1E6D6CFD56353E464340097A6A450AD1FF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4CD16CC71906F530428B1C4283EAB7915D7BF3C29CF4EA15.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4CD16CC71906F530428B1C4283EAB7915D7BF3C29CF4EA15_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4CD16CC71906F530977DB9230FE057C82495D1E34DF0FE3D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4CD16CC71906F530977DB9230FE057C82495D1E34DF0FE3D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4CD16CC71906F53098070226ADFA18E786514A2D5955BC24.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4CD16CC71906F53098070226ADFA18E786514A2D5955BC24_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4DC770B0CEF5E3B5CACF89B1C31282A563AA1186358D099C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4DC770B0CEF5E3B5CACF89B1C31282A563AA1186358D099C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4E65E57D92E3B1AACBD961CAB8541E13A5975685B7E45EDB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4E65E57D92E3B1AACBD961CAB8541E13A5975685B7E45EDB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4EAFC9446FC2FDA96475B0F321C447A4D8889B907C7D9914.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4EAFC9446FC2FDA96475B0F321C447A4D8889B907C7D9914_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4ED2135FF0A55C3D7A4B8D120D480744B2AB59059A00E138.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4ED2135FF0A55C3D7A4B8D120D480744B2AB59059A00E138_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4ED2135FF0A55C3D7F1BAED00A9DB4024C7C414B49313DFD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4ED2135FF0A55C3D7F1BAED00A9DB4024C7C414B49313DFD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4ED2135FF0A55C3D813B23BFE9225DC9B3593766EF832279.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4ED2135FF0A55C3D813B23BFE9225DC9B3593766EF832279_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4ED2135FF0A55C3DF37F0C3D518BEF91E06140DA413A2713.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4ED2135FF0A55C3DF37F0C3D518BEF91E06140DA413A2713_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4EE17C1A79A4E37821C471B90E1694F15799373A2669C6E7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4EE17C1A79A4E37821C471B90E1694F15799373A2669C6E7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4EE17C1A79A4E378EA88BEA9904B740828B28D6018979D29.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4EE17C1A79A4E378EA88BEA9904B740828B28D6018979D29_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4F4C96D1D988000B83C914F75CF613B65D523A6FE968772C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4F4C96D1D988000B83C914F75CF613B65D523A6FE968772C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4F7C67B1B416E7F41724AED528381DCE36E232E1B962B78A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4F7C67B1B416E7F41724AED528381DCE36E232E1B962B78A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx4FF8FA975791743419B6BAB67980A5A742C8B1F1C7CA1D53.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx4FF8FA975791743419B6BAB67980A5A742C8B1F1C7CA1D53_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5018996AE3D312B7C7CC6D1D0E2D547ED07A494F0D3A709E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5018996AE3D312B7C7CC6D1D0E2D547ED07A494F0D3A709E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx504AF1B40D661E3182C6531F7B46480E7F41078D06CDCFAF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx504AF1B40D661E3182C6531F7B46480E7F41078D06CDCFAF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx504AF1B40D661E318808E342755F5F8F5F2176329B1099FC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx504AF1B40D661E318808E342755F5F8F5F2176329B1099FC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx50A6A79EE36E3CCD5AA6014B76839AC1847143AD49447EA3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx50A6A79EE36E3CCD5AA6014B76839AC1847143AD49447EA3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx516EDA06AFC86A96CF83E05B1E2C72062F6B42B007CCC45F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx516EDA06AFC86A96CF83E05B1E2C72062F6B42B007CCC45F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx516EDA06AFC86A96DEF620D64057D24304932BBB29032A2C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx516EDA06AFC86A96DEF620D64057D24304932BBB29032A2C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx51A80B3E99993CFE8D49D032D315D5AA7470D7B51AAA3BA5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx51A80B3E99993CFE8D49D032D315D5AA7470D7B51AAA3BA5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx51CD05AAA1BF2AF178052BEEE6720CCE39FDAF9ABB7F7EBF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx51CD05AAA1BF2AF178052BEEE6720CCE39FDAF9ABB7F7EBF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx52A1B18E58F40C8FB77C2A69696B8742CD80BDED294F9DEA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx52A1B18E58F40C8FB77C2A69696B8742CD80BDED294F9DEA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx52C5BF85821A07F0BA9C171C7A9848144E1316D64660557C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx52C5BF85821A07F0BA9C171C7A9848144E1316D64660557C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx52F220173F215CEE2AF44E2741D07661594B72C69AE57DEE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx52F220173F215CEE2AF44E2741D07661594B72C69AE57DEE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx533EC33D04581309BAE79E02170CAA48037AB85859283614.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx533EC33D04581309BAE79E02170CAA48037AB85859283614_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx53427F159B58FC850825C73FE4FD5EE6F9F5004A129732CD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx53427F159B58FC850825C73FE4FD5EE6F9F5004A129732CD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx539AA3BFF2614BB114CAAD4E135B24474C2FD45BDCF3C18D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx539AA3BFF2614BB114CAAD4E135B24474C2FD45BDCF3C18D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx539AA3BFF2614BB11EC301F922DF1D6EB66F648CFD86B6EE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx539AA3BFF2614BB11EC301F922DF1D6EB66F648CFD86B6EE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx539DB79E41F6AA2BDC7E79B33C76FB6FD5585583B66DDB1D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx539DB79E41F6AA2BDC7E79B33C76FB6FD5585583B66DDB1D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx53C966B8FF31C915F35CBBABB90687CADB06D59789663C41.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx53C966B8FF31C915F35CBBABB90687CADB06D59789663C41_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx54187A4FBD409DDD063160262732D37E9CAEFA2A2FC29570.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx54187A4FBD409DDD063160262732D37E9CAEFA2A2FC29570_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx548829E2295B777477EEF5AD7B52516483F97FE03FFCD0EF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx548829E2295B777477EEF5AD7B52516483F97FE03FFCD0EF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx54ADC117CB68757CD26FAECB856335BAEA518BADA3B1D562.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx54ADC117CB68757CD26FAECB856335BAEA518BADA3B1D562_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx54E4C11D0D91C0320F543B0FCAE06DBC6E06E12714DD7B01.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx54E4C11D0D91C0320F543B0FCAE06DBC6E06E12714DD7B01_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx552814BC181CA38B4610252231F024FFC655093C180B1094.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx552814BC181CA38B4610252231F024FFC655093C180B1094_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx556FFA44D63AD311B1EA1654E65E580B12F368456EB8402A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx556FFA44D63AD311B1EA1654E65E580B12F368456EB8402A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx55AD3019A3318C2B3949A3914CC9AC3C90BBF24D783964DB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx55AD3019A3318C2B3949A3914CC9AC3C90BBF24D783964DB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx55AD3019A3318C2B6C699D41E4EBE763BC4E47BF4E9BFD8D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx55AD3019A3318C2B6C699D41E4EBE763BC4E47BF4E9BFD8D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx55AD3019A3318C2B9B2E59E2B3FF6297E8A5FA91A1B64E5E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx55AD3019A3318C2B9B2E59E2B3FF6297E8A5FA91A1B64E5E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx55AD3019A3318C2BD693F2094679AD6751F86FF222B86674.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx55AD3019A3318C2BD693F2094679AD6751F86FF222B86674_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx55AD3019A3318C2BF1342646FC3BC5AFD28C776950E8D4C4.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx55AD3019A3318C2BF1342646FC3BC5AFD28C776950E8D4C4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx560FA552A9EA24CC8B312C0989F2E7131DE48CD20C69FFCC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx560FA552A9EA24CC8B312C0989F2E7131DE48CD20C69FFCC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx567CD9145A3FAD22F4F9AF5F7704C9AC0822FA6A2845A546.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx567CD9145A3FAD22F4F9AF5F7704C9AC0822FA6A2845A546_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx569638AE4C6131C024DC3ACB924A14606A7FE61AA98AF107.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx569638AE4C6131C024DC3ACB924A14606A7FE61AA98AF107_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5697C4D4B57C86BAC72CF2508522FF72DB9C1398212C92E3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5697C4D4B57C86BAC72CF2508522FF72DB9C1398212C92E3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx570BE55F360243A2C82C21EADDBA4B7CDBBB67C1C675B6CA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx570BE55F360243A2C82C21EADDBA4B7CDBBB67C1C675B6CA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx570BE55F360243A2D789EA5346E536AA3B16516B7A428776.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx570BE55F360243A2D789EA5346E536AA3B16516B7A428776_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5744CEC558A46B4B1C9CB6E9F1BB82DD31F624849A7D8889.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5744CEC558A46B4B1C9CB6E9F1BB82DD31F624849A7D8889_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx576D16727D7458A29DD6308F918A95629EBD04C50E0663C3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx576D16727D7458A29DD6308F918A95629EBD04C50E0663C3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx585B8A00D898282575834078CEA6E95B517214E5BDA4346E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx585B8A00D898282575834078CEA6E95B517214E5BDA4346E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx58903BF72C6A38433166E6F075772C175673B81B9F1F10AB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx58903BF72C6A38433166E6F075772C175673B81B9F1F10AB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx58B3541B1F7C60025FEE6D5327EF78531440992371F5596E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx58B3541B1F7C60025FEE6D5327EF78531440992371F5596E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx59081DADCE950F83F408A7E2B9243A95897D2AB71975AE9A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx59081DADCE950F83F408A7E2B9243A95897D2AB71975AE9A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx592AC19BC9D9FA058832C0A3BBF004D193EE9FCD53D7941B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx592AC19BC9D9FA058832C0A3BBF004D193EE9FCD53D7941B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx59AF27E8861C2B84EA3D742C5BA50ED0FDABD819FEC40D5C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx59AF27E8861C2B84EA3D742C5BA50ED0FDABD819FEC40D5C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5A9FEA715FD1A8263F2E5B132F4C8BBD4C8F4DD842DD2A1B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5A9FEA715FD1A8263F2E5B132F4C8BBD4C8F4DD842DD2A1B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5AA1D80CF63593C15D3C2765D610F5BA7982C25680FAF048.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5AA1D80CF63593C15D3C2765D610F5BA7982C25680FAF048_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5AE6C0BC2598BDD4418E7A8658ADA771F8FD493920A3575C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5AE6C0BC2598BDD4418E7A8658ADA771F8FD493920A3575C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5B2EA8EFC623BB938351A9D7366D39863A1400448399461B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5B2EA8EFC623BB938351A9D7366D39863A1400448399461B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5B2EA8EFC623BB93EE133D50B26042A9BB1B0A00D0166B7D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5B2EA8EFC623BB93EE133D50B26042A9BB1B0A00D0166B7D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5B4958EAA06DEB89D67B8BD142312D0F7310519CDB56C6DA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5B4958EAA06DEB89D67B8BD142312D0F7310519CDB56C6DA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5B765CDC56B851B4598AF1200F042643D3195B7D11F263CF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5B765CDC56B851B4598AF1200F042643D3195B7D11F263CF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5E17136591B2A37232A19F78B2FB7A148374C27F3E4AF04B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5E17136591B2A37232A19F78B2FB7A148374C27F3E4AF04B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5E17136591B2A372477FADCF1395486EEADFD11F92592F3D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5E17136591B2A372477FADCF1395486EEADFD11F92592F3D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5E6AD13F5302AA05595B9EB5450DD27CBB58794EA6C7A614.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5E6AD13F5302AA05595B9EB5450DD27CBB58794EA6C7A614_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5E8347EB932D86FD061C76415E5274A2B4C198692DF29C64.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5E8347EB932D86FD061C76415E5274A2B4C198692DF29C64_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5ED102CA7FB8181668D560C18DB7F2D039681F36BD74CDFD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5ED102CA7FB8181668D560C18DB7F2D039681F36BD74CDFD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5ED676E3244BB1F8C12245004E0CBBB5E906C8181F79B425.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5ED676E3244BB1F8C12245004E0CBBB5E906C8181F79B425_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5ED676E3244BB1F8F29FED01A9C6EC7A22CC92EB941DE0FE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5ED676E3244BB1F8F29FED01A9C6EC7A22CC92EB941DE0FE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5ED8A3BACE488CFAD795B5660B429EEB6B818FE598C0CB98.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5ED8A3BACE488CFAD795B5660B429EEB6B818FE598C0CB98_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5F2AEE74B2E52EBF5A636F34F538722F96B95B952F107966.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5F2AEE74B2E52EBF5A636F34F538722F96B95B952F107966_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5F2AEE74B2E52EBF6F3AB9AC2114C9935CCD157AD868C901.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5F2AEE74B2E52EBF6F3AB9AC2114C9935CCD157AD868C901_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5F2AEE74B2E52EBFD474D6D6E344A6FAECEA7E540513098A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5F2AEE74B2E52EBFD474D6D6E344A6FAECEA7E540513098A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5F4477ECD6AC7C4EC0081C65A0CEADBA6EDE867305DB7CBA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5F4477ECD6AC7C4EC0081C65A0CEADBA6EDE867305DB7CBA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5F4477ECD6AC7C4ECB44EF66D9225614C4DCDE42A5CF50F7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5F4477ECD6AC7C4ECB44EF66D9225614C4DCDE42A5CF50F7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5FB948563D7915F08329339DBA9632722C0A554057C2AB47.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5FB948563D7915F08329339DBA9632722C0A554057C2AB47_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5FC5BB8A8DEDB54D8DF151F0E53DC6DF425F551F8C23C86F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5FC5BB8A8DEDB54D8DF151F0E53DC6DF425F551F8C23C86F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx5FC5BB8A8DEDB54DACD271062B296BAA0CCE2FCBF13D07D3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx5FC5BB8A8DEDB54DACD271062B296BAA0CCE2FCBF13D07D3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx600BB33B3216E05B3AC413C88A493360C21EE4F2375C48A5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx600BB33B3216E05B3AC413C88A493360C21EE4F2375C48A5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx600BB33B3216E05B9B225F545650A4CA45BB1C63C3D2A2A8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx600BB33B3216E05B9B225F545650A4CA45BB1C63C3D2A2A8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx600E30623048158F7533EB1DCED6BE3B5202FFF03D4D6510.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx600E30623048158F7533EB1DCED6BE3B5202FFF03D4D6510_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx60858041F3848EF43F3AF1650B34638570A767547A5AA32B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx60858041F3848EF43F3AF1650B34638570A767547A5AA32B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx613684AFEC73B7A5AA16CA4069B403460CF4F594FA68CF3E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx613684AFEC73B7A5AA16CA4069B403460CF4F594FA68CF3E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx615BF0336F2C1E791E08E758A9D582776B56C66DCEBD5883.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx615BF0336F2C1E791E08E758A9D582776B56C66DCEBD5883_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx61704E649960C4029C1C1AD27E6317C2F8C748C8B932A3AD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx61704E649960C4029C1C1AD27E6317C2F8C748C8B932A3AD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6255D6DBE1B906A9F3A402EC7F758DB66E06ED0CB2FFBF79.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6255D6DBE1B906A9F3A402EC7F758DB66E06ED0CB2FFBF79_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx62B066968229B5907BDD0B2438B643250368BBD932D0D7DD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx62B066968229B5907BDD0B2438B643250368BBD932D0D7DD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx62B066968229B590A10133BBF71E44E9F0616A9B4B736B4E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx62B066968229B590A10133BBF71E44E9F0616A9B4B736B4E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx62B066968229B590EBB11C47F554D33E80C6E51634B8634C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx62B066968229B590EBB11C47F554D33E80C6E51634B8634C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6318BA5A929812A3EA20A9A6012BBDEAB8B71DB56B559150.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6318BA5A929812A3EA20A9A6012BBDEAB8B71DB56B559150_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx63194BF7E3385CFDC26585F0DF2185ACC740B745201AFBEE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx63194BF7E3385CFDC26585F0DF2185ACC740B745201AFBEE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx636EDE3E4647747562CEE36581CC8883234F2231166B697C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx636EDE3E4647747562CEE36581CC8883234F2231166B697C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx636EDE3E46477475F68A5D49A7A32440949F06C39C0073BB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx636EDE3E46477475F68A5D49A7A32440949F06C39C0073BB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx64A95AEC2BE98B00C48F17A4D5ECEF6081B0F041E66A9775.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx64A95AEC2BE98B00C48F17A4D5ECEF6081B0F041E66A9775_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx64A95AEC2BE98B00C9CB7485C4517A67FFA4C7D5D78C5BE2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx64A95AEC2BE98B00C9CB7485C4517A67FFA4C7D5D78C5BE2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx64D8ABDFA2E7D305567FF5A35BD00F37D18A724E05FDE931.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx64D8ABDFA2E7D305567FF5A35BD00F37D18A724E05FDE931_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx64E8FCD44CF250DDF6FEA4135678D14B0FA63C2D8F5909D0.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx64E8FCD44CF250DDF6FEA4135678D14B0FA63C2D8F5909D0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx64EAF1574DDAF8EDE415B3471C6EF446DAC86817AF514F35.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx64EAF1574DDAF8EDE415B3471C6EF446DAC86817AF514F35_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx65269658C21EAC9802652A31DABC4D9FE8F885FE382BFF87.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx65269658C21EAC9802652A31DABC4D9FE8F885FE382BFF87_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx65269658C21EAC987B7A7AEE55A1AB22A23D0BC79E0F8A66.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx65269658C21EAC987B7A7AEE55A1AB22A23D0BC79E0F8A66_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx656588024899FE03C3CEC05B7B5778D041E1ECD352CFE59C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx656588024899FE03C3CEC05B7B5778D041E1ECD352CFE59C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx657D9745A22BCF4D734ABB69FE7048520DF1376DB1C13C35.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx657D9745A22BCF4D734ABB69FE7048520DF1376DB1C13C35_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx65B039F2B5CA9CD437E732E0B9E358CC5AC409AA867EDCD6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx65B039F2B5CA9CD437E732E0B9E358CC5AC409AA867EDCD6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx66A0D23C9547D4B05E3A2C2D406455F5B9AED49E9BD81CB7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx66A0D23C9547D4B05E3A2C2D406455F5B9AED49E9BD81CB7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx66C236B993CD7FAFC2F125311C65147E643691D3B5C42826.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx66C236B993CD7FAFC2F125311C65147E643691D3B5C42826_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6727174D77521EE5B2C4F676EF887A75CEE9B74E4ED97F66.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6727174D77521EE5B2C4F676EF887A75CEE9B74E4ED97F66_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx67415A03D61E77340BB5A07721A9EEE79141C9853DE4F7D6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx67415A03D61E77340BB5A07721A9EEE79141C9853DE4F7D6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx67415A03D61E773414BD11A6A8DB2DEF90B76615A5E494F7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx67415A03D61E773414BD11A6A8DB2DEF90B76615A5E494F7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx67415A03D61E7734C5EB110B87EF37FC912D606A17F24F1C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx67415A03D61E7734C5EB110B87EF37FC912D606A17F24F1C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx67441E002546BA1D6C7EEF3BDC1E58825CC1E98E5BAE4BB4.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx67441E002546BA1D6C7EEF3BDC1E58825CC1E98E5BAE4BB4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6807F4B56B7D076909FC86782C5E1231A9498349EA153C18.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6807F4B56B7D076909FC86782C5E1231A9498349EA153C18_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6807F4B56B7D07692E6BE9484415FA09CE9C1D1E0F1AB0D7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6807F4B56B7D07692E6BE9484415FA09CE9C1D1E0F1AB0D7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx681A11F58D74D4599A6B2A227605EA0C1B77B69A7D2D12D3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx681A11F58D74D4599A6B2A227605EA0C1B77B69A7D2D12D3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx68514F0FF623A26E16658ACFCBAF06BB2F5824CABEE60F38.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx68514F0FF623A26E16658ACFCBAF06BB2F5824CABEE60F38_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx696C242456C97E11A3BA8A04884698607FA2811493CECACC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx696C242456C97E11A3BA8A04884698607FA2811493CECACC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx698005FBCCA840800D6D5315F1EE49CFA39AB5E532D91B85.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx698005FBCCA840800D6D5315F1EE49CFA39AB5E532D91B85_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6983E16FD09E59A77137CF4C90F9B854CD3EC63D4E914DF7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6983E16FD09E59A77137CF4C90F9B854CD3EC63D4E914DF7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6983E16FD09E59A7A4304A2E1E9870A3335CCAF2C16F4C3B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6983E16FD09E59A7A4304A2E1E9870A3335CCAF2C16F4C3B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6A2D61812017EDFAFA14F333CA7CD54CFF7BA3827489EF68.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6A2D61812017EDFAFA14F333CA7CD54CFF7BA3827489EF68_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6A6B918136F89E64C6F45744F6CB3C010B3AB2D50B72118D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6A6B918136F89E64C6F45744F6CB3C010B3AB2D50B72118D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6A887B63AD55475F2484B04AC037056DDF7179FB3E5B760A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6A887B63AD55475F2484B04AC037056DDF7179FB3E5B760A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6AFD1A8ED05D371EE384AC2BF8421A38BE60F0A912DA7F77.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6AFD1A8ED05D371EE384AC2BF8421A38BE60F0A912DA7F77_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6B33B06C99F2514BE9D2E82E45B19C44CBBE035F7E17B9DB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6B33B06C99F2514BE9D2E82E45B19C44CBBE035F7E17B9DB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6B36B1FCC373347CD82A62A9ABB7A987AF08526FC746A1B5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6B36B1FCC373347CD82A62A9ABB7A987AF08526FC746A1B5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6B714C12101460C52C133A7BDAD58B40301BB61DF002785E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6B714C12101460C52C133A7BDAD58B40301BB61DF002785E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6B714C12101460C54F1A626F8566E9BAD0EA737A57784718.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6B714C12101460C54F1A626F8566E9BAD0EA737A57784718_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6B714C12101460C58457BD7C868E4711F1EA31991F0C39BB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6B714C12101460C58457BD7C868E4711F1EA31991F0C39BB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6C2E49E5A10FF238DCB0F5E21F267A50C4132EFB02426EF3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6C2E49E5A10FF238DCB0F5E21F267A50C4132EFB02426EF3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6C601C55643BC046FB5E0B957E9BE1D4D7FD4B1F6774E4AC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6C601C55643BC046FB5E0B957E9BE1D4D7FD4B1F6774E4AC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6C638D9BFE2F6F6DA32FF3576D00729299CDE6AE847F1693.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6C638D9BFE2F6F6DA32FF3576D00729299CDE6AE847F1693_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6CFEF464C113FCF500FF85095B28D6B6AA3D9138C1FA567C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6CFEF464C113FCF500FF85095B28D6B6AA3D9138C1FA567C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6D601A7BDC8A50726539FBD1CCD040AF41E51715701CCD23.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6D601A7BDC8A50726539FBD1CCD040AF41E51715701CCD23_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6E4F40BA9C3B3DD587F74C4C9C3E1F55A5006E999087B426.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6E4F40BA9C3B3DD587F74C4C9C3E1F55A5006E999087B426_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6E63C4468346B19BABA5627E439A103C894ADF645DF1126C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6E63C4468346B19BABA5627E439A103C894ADF645DF1126C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6EC130BB2F5E1ECB845D551B2761210EDF8867DA59252129.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6EC130BB2F5E1ECB845D551B2761210EDF8867DA59252129_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6EC6B03372854DCB4444042A10D001CE18D091130CCCB466.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6EC6B03372854DCB4444042A10D001CE18D091130CCCB466_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6EEF54C45F5D2938ACB60707F0C99019CA3D388C931E8FD1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6EEF54C45F5D2938ACB60707F0C99019CA3D388C931E8FD1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6F79649FE009CAFCA0846DE94398CB2D3566259CBFD0760C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6F79649FE009CAFCA0846DE94398CB2D3566259CBFD0760C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6F79649FE009CAFCE973032FB8B733822FF1E6F1D98DECDE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6F79649FE009CAFCE973032FB8B733822FF1E6F1D98DECDE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6F9A86DB1959C933E05FB1586832FD90A346C2742BABBF81.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6F9A86DB1959C933E05FB1586832FD90A346C2742BABBF81_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx6FF2EB37C2EA7D75399976E6209F9A1AB7D5F70CCD6C48A8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx6FF2EB37C2EA7D75399976E6209F9A1AB7D5F70CCD6C48A8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx704DFAE6D896E5739551E9490C9CBDAD0EB751D39CA494D0.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx704DFAE6D896E5739551E9490C9CBDAD0EB751D39CA494D0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx704DFAE6D896E573D76A27EB451CBB8B20B2DD0C366904AB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx704DFAE6D896E573D76A27EB451CBB8B20B2DD0C366904AB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx705B3531CEB972E1F928E8425B89AD7DF17BF2D273C14ADC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx705B3531CEB972E1F928E8425B89AD7DF17BF2D273C14ADC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx707FA86CFFC26B0362484221AF3AD855F4AB921A47B28055.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx707FA86CFFC26B0362484221AF3AD855F4AB921A47B28055_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx709C61C9E271E65BFB0954073448C2BDCC1F496B07639C52.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx709C61C9E271E65BFB0954073448C2BDCC1F496B07639C52_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx70EA988D4E33BC00C76989F2FF828C0397AE1D94C4F1EDEB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx70EA988D4E33BC00C76989F2FF828C0397AE1D94C4F1EDEB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx710EA1D8309EC121ECE1420A7A6C998721E75E03F71F6BE9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx710EA1D8309EC121ECE1420A7A6C998721E75E03F71F6BE9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx71882377B86909CE2C7110CA50FB4FEC2E803144C9A9F126.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx71882377B86909CE2C7110CA50FB4FEC2E803144C9A9F126_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx733E40280941D5A0840BFD2F29D76952A88322C5D99A67CC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx733E40280941D5A0840BFD2F29D76952A88322C5D99A67CC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx73549B6A40980CE41A0801EF54DDA1E5D9FCC7CB6CBDE1EA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx73549B6A40980CE41A0801EF54DDA1E5D9FCC7CB6CBDE1EA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx73AF7FBD658B2F32513C6CDC15806C5E8BD8E9B8CABAF381.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx73AF7FBD658B2F32513C6CDC15806C5E8BD8E9B8CABAF381_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx73F7FEEA92E425410EACB44DD2FF4ECC3175F0034E2D8950.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx73F7FEEA92E425410EACB44DD2FF4ECC3175F0034E2D8950_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx744CC902CEFF398E5BFFDA5DAC03530EDCA34E098E7D8521.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx744CC902CEFF398E5BFFDA5DAC03530EDCA34E098E7D8521_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx749FEB71D265630FEBB01B7E68573CC22AE4EE41BDDCCBEF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx749FEB71D265630FEBB01B7E68573CC22AE4EE41BDDCCBEF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx766A344876F00BE04369DB7048D95965D644794560A8C2F5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx766A344876F00BE04369DB7048D95965D644794560A8C2F5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx76E046BDD20F13BC9DF52FD603260826F3A33C213013279E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx76E046BDD20F13BC9DF52FD603260826F3A33C213013279E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx76EA0AAF9604A2B299435142D79C05C4848E505FBFB3327A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx76EA0AAF9604A2B299435142D79C05C4848E505FBFB3327A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7859C612513D0CA669CA6F0A5F4BDBB73477628D42101B7E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7859C612513D0CA669CA6F0A5F4BDBB73477628D42101B7E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7951881EF40FC42633A4A53A0E13653EEDD3AD8C6837E6B5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7951881EF40FC42633A4A53A0E13653EEDD3AD8C6837E6B5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7951881EF40FC42651E18D72C193BD61B85C56A1DFA1EB9F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7951881EF40FC42651E18D72C193BD61B85C56A1DFA1EB9F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7951881EF40FC426835655F2DCC4CCDF9DC96F9B99694109.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7951881EF40FC426835655F2DCC4CCDF9DC96F9B99694109_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7951881EF40FC426F06360F413ECA9C2E6ED202A7202534F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7951881EF40FC426F06360F413ECA9C2E6ED202A7202534F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7951881EF40FC426FDE57EC6B8481F168CBD526EE2EC764E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7951881EF40FC426FDE57EC6B8481F168CBD526EE2EC764E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx79D67DE4C64C5E5FC73196916AB5E19A69B2E230E335A57B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx79D67DE4C64C5E5FC73196916AB5E19A69B2E230E335A57B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7A1F719E8B5B30455273FCB5DEC0C74A33BAE4D6D032DF70.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7A1F719E8B5B30455273FCB5DEC0C74A33BAE4D6D032DF70_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7A21222F0FF5E778316945EE1DFC7F0F3B1D06CCEAA59C8E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7A21222F0FF5E778316945EE1DFC7F0F3B1D06CCEAA59C8E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7ADA6A1993F1295DB4741D5821C2CC8DF205FB66CA563137.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7ADA6A1993F1295DB4741D5821C2CC8DF205FB66CA563137_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7C1ADB5EC3F881C119CD62993F89148864B049DB14C5318A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7C1ADB5EC3F881C119CD62993F89148864B049DB14C5318A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7C5F892360CCBA6213B2028AD122A1DAE02324EE2546380C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7C5F892360CCBA6213B2028AD122A1DAE02324EE2546380C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7D0AAC73984A8AC95FD33AD2522F92587DF9B8371D7C79F8.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7D0AAC73984A8AC95FD33AD2522F92587DF9B8371D7C79F8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7D5AB573090376F781DC164A66E6BDA1FA3E4F8D8AEDF9EE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7D5AB573090376F781DC164A66E6BDA1FA3E4F8D8AEDF9EE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7D5AB573090376F79A9B8798AEE4C2B73CA9538E432FE2D9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7D5AB573090376F79A9B8798AEE4C2B73CA9538E432FE2D9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx7FB045DDBDDCDDC6CD339BCD1BCB21923607C957CCA0D448.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx7FB045DDBDDCDDC6CD339BCD1BCB21923607C957CCA0D448_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx800E47489EF47140BEE20BD13FE0BE47F9406FF9473A59D2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx800E47489EF47140BEE20BD13FE0BE47F9406FF9473A59D2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8024D25AB9871F3D18E5A4DCF93B28F923CC7481341C493B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8024D25AB9871F3D18E5A4DCF93B28F923CC7481341C493B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx808CBF85580C8A524E90D1A1B7E63CA54AB01CE941892A2C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx808CBF85580C8A524E90D1A1B7E63CA54AB01CE941892A2C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx808CBF85580C8A52F625D7FC9667F12DA964A7194E5A900F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx808CBF85580C8A52F625D7FC9667F12DA964A7194E5A900F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx80B7A4D341349B1DEEC43695767B3092D0B6C145AC4AC374.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx80B7A4D341349B1DEEC43695767B3092D0B6C145AC4AC374_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8104110A401AA0F1936937E0C991C0560D0BD7A52FA5AD62.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8104110A401AA0F1936937E0C991C0560D0BD7A52FA5AD62_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8139B3F5503CDA776780627D00478D990FE14D835009F4A7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8139B3F5503CDA776780627D00478D990FE14D835009F4A7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx822B1193233F74F5A5E5D0ACC8219BF8AE4EFABE2FCB080C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx822B1193233F74F5A5E5D0ACC8219BF8AE4EFABE2FCB080C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx82469BB018D926020D941A2CD7789B1FE69584EE93D61262.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx82469BB018D926020D941A2CD7789B1FE69584EE93D61262_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx82469BB018D926021A0DE68D53829466728F761F7A9FE2BC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx82469BB018D926021A0DE68D53829466728F761F7A9FE2BC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx826F31C25810C6A99F981287354D792E761C8429008CA0B6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx826F31C25810C6A99F981287354D792E761C8429008CA0B6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx826F31C25810C6A9E11C65F8346F837853F61BA660429400.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx826F31C25810C6A9E11C65F8346F837853F61BA660429400_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx826F31C25810C6A9F8FDC54DDAF33D8DCD5D1BD839A83538.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx826F31C25810C6A9F8FDC54DDAF33D8DCD5D1BD839A83538_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8311956639D7E7D4B356DC60FF69D205EADC526A489E6039.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8311956639D7E7D4B356DC60FF69D205EADC526A489E6039_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx835BE89BC06B937B9B23B4F1D90881508F079ADB12ABBFDA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx835BE89BC06B937B9B23B4F1D90881508F079ADB12ABBFDA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx835BE89BC06B937BA926418179E4FA07E6735C97C53A176D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx835BE89BC06B937BA926418179E4FA07E6735C97C53A176D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx836945F670A552472975ECD5BAD33B1D8FDB441859DC209F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx836945F670A552472975ECD5BAD33B1D8FDB441859DC209F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx83C22F6F75B8C1821DFFE750AC7C5FF7AA44F40803C9AD45.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx83C22F6F75B8C1821DFFE750AC7C5FF7AA44F40803C9AD45_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx842609653BFCBCE7E6E3A08743153D621778B34268156550.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx842609653BFCBCE7E6E3A08743153D621778B34268156550_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx84C6541C8F8016148DEE71E2452989CFE24A78B33E600C22.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx84C6541C8F8016148DEE71E2452989CFE24A78B33E600C22_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx85587FA5B4B2A9CC5C006A0FDCB2BCB0C43E3C187AE0E654.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx85587FA5B4B2A9CC5C006A0FDCB2BCB0C43E3C187AE0E654_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx85587FA5B4B2A9CCF771CA89EF3F2F3D8CB02CD05A59A8CE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx85587FA5B4B2A9CCF771CA89EF3F2F3D8CB02CD05A59A8CE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx85CDD7AD4B9541C999C60977FF7BD08E14321F60BA772359.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx85CDD7AD4B9541C999C60977FF7BD08E14321F60BA772359_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx85D50811D1EA1A11B03AB2CE32A6A66D3FC2703A2D3B9DB3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx85D50811D1EA1A11B03AB2CE32A6A66D3FC2703A2D3B9DB3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8622D93E1FDBB9901E53A50C9646AAB037D44C6BAE148A96.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8622D93E1FDBB9901E53A50C9646AAB037D44C6BAE148A96_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx86E8594B94A97B534BC20D7FD912495340BD42C4D9CFA918.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx86E8594B94A97B534BC20D7FD912495340BD42C4D9CFA918_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx86F99E7E390C00CB15F6C06905D1DB9D85D0104D663448D6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx86F99E7E390C00CB15F6C06905D1DB9D85D0104D663448D6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx87AD2F6D0872195177833288BEC6C7C75475952000F32E4B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx87AD2F6D0872195177833288BEC6C7C75475952000F32E4B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx87AF1F682BC71658E2CFA9467AF58FBF1E6EA5854B301C38.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx87AF1F682BC71658E2CFA9467AF58FBF1E6EA5854B301C38_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx881D4370D4E2B3EB2E6825C81E19A9097CA157CD762C4E76.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx881D4370D4E2B3EB2E6825C81E19A9097CA157CD762C4E76_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx884CC84AEA488B322F652EA32D97F65A0B1FFE335A73D87C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx884CC84AEA488B322F652EA32D97F65A0B1FFE335A73D87C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx885197EA25ED1851808083B77B6868C3530394B3C9D55E19.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx885197EA25ED1851808083B77B6868C3530394B3C9D55E19_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx88ACB7F8111B2813505A7A561719C7A0C8890C9F8CCEFE4C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx88ACB7F8111B2813505A7A561719C7A0C8890C9F8CCEFE4C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx88B03F6A7F5A1AD08A8578B8F8DFB5CDAACC33CB497FEC37.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx88B03F6A7F5A1AD08A8578B8F8DFB5CDAACC33CB497FEC37_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx88B74210C12C5EACAB1558A7CFDF086BFF154B63C8EA1E4B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx88B74210C12C5EACAB1558A7CFDF086BFF154B63C8EA1E4B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx88CDD4E017AF5C828FE5F36039B1951EB155BD25D0B97A04.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx88CDD4E017AF5C828FE5F36039B1951EB155BD25D0B97A04_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx892330D71B2D63CAA1B4F53109D8A1A9B1A54D4C130413FF.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx892330D71B2D63CAA1B4F53109D8A1A9B1A54D4C130413FF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8A4DCFA5AD1BFFBBF72066AAC854D02C47E1EC6D16C33E9B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8A4DCFA5AD1BFFBBF72066AAC854D02C47E1EC6D16C33E9B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8AED30772B9345517DA7A78056E7C70C0336DE70F18FB786.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8AED30772B9345517DA7A78056E7C70C0336DE70F18FB786_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8AED30772B934551EAF242D511B28908E41DEC9953E2003A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8AED30772B934551EAF242D511B28908E41DEC9953E2003A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8AFC7B72C841CC55B4428EE569AA872C993B0B82200BAECC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8AFC7B72C841CC55B4428EE569AA872C993B0B82200BAECC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8B007FE85539264AE654496D82273C5857447B309FEDD6A1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8B007FE85539264AE654496D82273C5857447B309FEDD6A1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8B08329735765986677EB5A08765BBE99C49578728989F1E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8B08329735765986677EB5A08765BBE99C49578728989F1E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8B381C6BB4B224AAFB36137CABD70504FB29B4BF6966BAF1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8B381C6BB4B224AAFB36137CABD70504FB29B4BF6966BAF1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8B4DDDE2EF0F838C1E46F70D88C7C7C0A1274CC062AC821D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8B4DDDE2EF0F838C1E46F70D88C7C7C0A1274CC062AC821D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8C2082663880EE021B90E42E51461164FC3DF5AF0FF3B195.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8C2082663880EE021B90E42E51461164FC3DF5AF0FF3B195_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8CF89665CB88F1FFB96AA9196091B5DF0641059D070B07D2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8CF89665CB88F1FFB96AA9196091B5DF0641059D070B07D2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8D3C7550919257B9889A79C1A99B8EB256894F128FCB63B5.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8D3C7550919257B9889A79C1A99B8EB256894F128FCB63B5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8DFA64D65C82A9504675F3BE68244D5DB54E1DEBBC651FC2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8DFA64D65C82A9504675F3BE68244D5DB54E1DEBBC651FC2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8E3B91ED97D86D10777008EF1942E22752901949BB33D1EC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8E3B91ED97D86D10777008EF1942E22752901949BB33D1EC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8EEE7D7746F8BC3E0E5099D301AA0DD58DC232C21AF1598F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8EEE7D7746F8BC3E0E5099D301AA0DD58DC232C21AF1598F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8F7A2D7C8E918A752B8C9B2558F538DA1B59E9EF05C0DAD0.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8F7A2D7C8E918A752B8C9B2558F538DA1B59E9EF05C0DAD0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8F8A147874051D87580335860FFB6C12566887B9EEFC838A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8F8A147874051D87580335860FFB6C12566887B9EEFC838A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx8F95BFDF3B3FC9F85913828B2A504CBB45535F3A81F78ADD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx8F95BFDF3B3FC9F85913828B2A504CBB45535F3A81F78ADD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx90019D6EB6805787B122BE1359C1647FCBEE4D9179EB1A9F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx90019D6EB6805787B122BE1359C1647FCBEE4D9179EB1A9F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx900F64CC3D30629A754ED04007971BD74531C686C8541AEE.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx900F64CC3D30629A754ED04007971BD74531C686C8541AEE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx906BB2AE190BB79BAFBF33A49394FEC1628B8B1EF264FFAC.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx906BB2AE190BB79BAFBF33A49394FEC1628B8B1EF264FFAC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx90A7EF10C9806EEFF37EB4C85FF08E0D7923700BEDA3BB89.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx90A7EF10C9806EEFF37EB4C85FF08E0D7923700BEDA3BB89_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9178DA08432AE6C72E651926E66C439966406A8A9B90EDCA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9178DA08432AE6C72E651926E66C439966406A8A9B90EDCA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx918F8C7BBD3F587FD3F2673BDB7C9998E14206BD7E3B0398.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx918F8C7BBD3F587FD3F2673BDB7C9998E14206BD7E3B0398_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx93014DFEDEF5C296DFA22750CE2784F183A3019BF3325C3D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx93014DFEDEF5C296DFA22750CE2784F183A3019BF3325C3D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx93EC2D1600D91567375B0ECB647508DA93F1F35D76B24C23.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx93EC2D1600D91567375B0ECB647508DA93F1F35D76B24C23_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx93EC2D1600D91567B00A1006B88CD5D72005520F5B45A7F1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx93EC2D1600D91567B00A1006B88CD5D72005520F5B45A7F1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx949BBA19176EEEEE12A38BCF6569054C88BD26578D5F6D2F.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx949BBA19176EEEEE12A38BCF6569054C88BD26578D5F6D2F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx949BBA19176EEEEE5E81F9595B665E43DA1B7CDD046003BD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx949BBA19176EEEEE5E81F9595B665E43DA1B7CDD046003BD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx94B02A482BADC62C022512769E16EAE1B10C6D0A7ADC8B45.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx94B02A482BADC62C022512769E16EAE1B10C6D0A7ADC8B45_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx94B02A482BADC62CAFC39992E43329F1D9D6A705ED7FD8D6.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx94B02A482BADC62CAFC39992E43329F1D9D6A705ED7FD8D6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx94B3091A70945039B59E48553186CB022A5EA84DF4F1805A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx94B3091A70945039B59E48553186CB022A5EA84DF4F1805A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9574DFB02B6FB06A36D9BE171710E1D155344F79C63C788C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9574DFB02B6FB06A36D9BE171710E1D155344F79C63C788C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9574DFB02B6FB06A386AED7F477E6F756B81014B1172904D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9574DFB02B6FB06A386AED7F477E6F756B81014B1172904D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9574DFB02B6FB06A99FFA85CF26EDFFB5AC29A1E7968F189.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9574DFB02B6FB06A99FFA85CF26EDFFB5AC29A1E7968F189_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx95760F4DDFEEDF4CD00784402D23636239E31D7EABCD7939.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx95760F4DDFEEDF4CD00784402D23636239E31D7EABCD7939_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx95B9DA7994352855AC56A8423C0A0F1B68A3748E99C6E77E.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx95B9DA7994352855AC56A8423C0A0F1B68A3748E99C6E77E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx95F33E17F7F8218E9FA35FC3D79D8EB9E02019709C3A5EC2.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx95F33E17F7F8218E9FA35FC3D79D8EB9E02019709C3A5EC2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx962763BC29A2C4FC1D3F0B87FFA4D3256B5864D20EA5E8DA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx962763BC29A2C4FC1D3F0B87FFA4D3256B5864D20EA5E8DA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9687D8530B98BF197ADF4F6311C64517BF27DA7643D6F7F9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9687D8530B98BF197ADF4F6311C64517BF27DA7643D6F7F9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx96C0C360AEBF01B06DB0555FDC9B7FDD5B3D2E3648428AAD.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx96C0C360AEBF01B06DB0555FDC9B7FDD5B3D2E3648428AAD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9727ED2AF24A37B21185FC63967F6988A58B21BCBF52E846.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9727ED2AF24A37B21185FC63967F6988A58B21BCBF52E846_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx97928AD5A213289C6B95B389DF91F14F90ACD2828C8AFD57.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx97928AD5A213289C6B95B389DF91F14F90ACD2828C8AFD57_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx97E643B8E4A5DEB351E18CB763B8CFB27D5A870812A6C453.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx97E643B8E4A5DEB351E18CB763B8CFB27D5A870812A6C453_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx986577E2EB1057F93287CCCFEC27380501F7AF20DF2B5CCB.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx986577E2EB1057F93287CCCFEC27380501F7AF20DF2B5CCB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx986A45AC9267FF16AB73E0A33F49A60A615E7B4DC3974643.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx986A45AC9267FF16AB73E0A33F49A60A615E7B4DC3974643_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx98BEC5DDF705BC23BA3D7DEAC87D8FF588F07F47D9C9492B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx98BEC5DDF705BC23BA3D7DEAC87D8FF588F07F47D9C9492B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9977B241B90F7BC8B9BB80086A4DF457D122DC866D682F4D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9977B241B90F7BC8B9BB80086A4DF457D122DC866D682F4D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9A0E70ACF621144B79A903E7F63D1E9CCD4F69EBEC9BF7BA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9A0E70ACF621144B79A903E7F63D1E9CCD4F69EBEC9BF7BA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9A0E70ACF621144BDE9A072548A6C14CB9709B8BB0C00FA9.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9A0E70ACF621144BDE9A072548A6C14CB9709B8BB0C00FA9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9A29DA6E21ACD7A0B49FCF887A0BF4FFD207CA7A3CDE7F85.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9A29DA6E21ACD7A0B49FCF887A0BF4FFD207CA7A3CDE7F85_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9A37AA6BF8B44163F6E9BFF94168F0F0091DC98C3C9C19A1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9A37AA6BF8B44163F6E9BFF94168F0F0091DC98C3C9C19A1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C2634AFDDE5A83EA11ECB13AB6417BEB06B0D5E1287C3FA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C2634AFDDE5A83EA11ECB13AB6417BEB06B0D5E1287C3FA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C4D13B3283A0D24249372719EB45237B43F4F1DA6F5BB9C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C4D13B3283A0D24249372719EB45237B43F4F1DA6F5BB9C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C4D13B3283A0D2496EAFFCF4B47A36CE7B8803204238899.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C4D13B3283A0D2496EAFFCF4B47A36CE7B8803204238899_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C51ACC8639C583BFC19993D6BE6C355E6AB9A9570D4F21B.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C51ACC8639C583BFC19993D6BE6C355E6AB9A9570D4F21B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C70756B5B6BC8D316D57140CC7A53DF3802066E4B88F2ED.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C70756B5B6BC8D316D57140CC7A53DF3802066E4B88F2ED_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9C70756B5B6BC8D35F998E8DC0978B1B683122D560D25B45.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9C70756B5B6BC8D35F998E8DC0978B1B683122D560D25B45_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D05ACEE4197AAC102E263F3A4A3CB86A5AF5A25B5BB74D7.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D05ACEE4197AAC102E263F3A4A3CB86A5AF5A25B5BB74D7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D05ACEE4197AAC1772BAC5BEFF54C1C4C50B7CC97F54B0C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D05ACEE4197AAC1772BAC5BEFF54C1C4C50B7CC97F54B0C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D18EA978D3BD10A326DC4749DD01290C243E5DC9963868D.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D18EA978D3BD10A326DC4749DD01290C243E5DC9963868D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D18EA978D3BD10A39721787340925858FD09F4E7B168615.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D18EA978D3BD10A39721787340925858FD09F4E7B168615_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D28426F44724AE86117620C1784533EF1B501151875EB8C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D28426F44724AE86117620C1784533EF1B501151875EB8C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9D6CE06969D7A50F451E40C9629E57D88E230878E019241C.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9D6CE06969D7A50F451E40C9629E57D88E230878E019241C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9DD6040F52E36EDB6C0385CCD5F1D725BBC97B6345A59F60.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9DD6040F52E36EDB6C0385CCD5F1D725BBC97B6345A59F60_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9E1D272B5003FE2AB53F6BE7CE3E5B7F905643402B415AA3.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9E1D272B5003FE2AB53F6BE7CE3E5B7F905643402B415AA3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9F55333E9B6FAB3A3A2B43885AAF93774464C16E9F455E53.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9F55333E9B6FAB3A3A2B43885AAF93774464C16E9F455E53_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9F70740616E28A470CCC31414C246AA78A7A26D407DD2431.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9F70740616E28A470CCC31414C246AA78A7A26D407DD2431_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9F900B383927BA7598F4791BC0CD23B85C9B319EAD69A8AA.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9F900B383927BA7598F4791BC0CD23B85C9B319EAD69A8AA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9FAE5E8EE578A07677FFED34689A2B272F1FD4FFFC9E23B1.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9FAE5E8EE578A07677FFED34689A2B272F1FD4FFFC9E23B1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9FAE5E8EE578A0768598453692C15615CF0BB5909AE24784.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9FAE5E8EE578A0768598453692C15615CF0BB5909AE24784_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9FAE5E8EE578A076899C0329C54F8A6BE48B2C4B47965266.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9FAE5E8EE578A076899C0329C54F8A6BE48B2C4B47965266_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/Zx9FE816B863546C24945213D4A35C9F890BD4EC91F238517A.nii.gz",
+            "label": "2_Train,Valid_Mask/Zx9FE816B863546C24945213D4A35C9F890BD4EC91F238517A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA0584678F6AD9E851E8AA69B22B44DB4BD85A9E5FD2F285A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA0584678F6AD9E851E8AA69B22B44DB4BD85A9E5FD2F285A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA077D5FA438E8FB93945C1D84AAD7586E7DC586B08B92F30.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA077D5FA438E8FB93945C1D84AAD7586E7DC586B08B92F30_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA1CECA46F4B0B1A28F45357DA3B8964AB5A446B2E2C27FD9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA1CECA46F4B0B1A28F45357DA3B8964AB5A446B2E2C27FD9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA31B066CA4D3269F11DEA8AB97B59258C7C00A369871B1CA.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA31B066CA4D3269F11DEA8AB97B59258C7C00A369871B1CA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA31B066CA4D3269FD8002A9BB0327A8EAB8B562CBF93C146.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA31B066CA4D3269FD8002A9BB0327A8EAB8B562CBF93C146_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA321207AC10B29464A450F8C1D22603E48CADBC8083F434C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA321207AC10B29464A450F8C1D22603E48CADBC8083F434C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA321207AC10B29466F29532180D4D0BF1DB1D1CAAD5A7497.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA321207AC10B29466F29532180D4D0BF1DB1D1CAAD5A7497_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA321207AC10B29467B512EE00066F7504C3284E8A1FA466B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA321207AC10B29467B512EE00066F7504C3284E8A1FA466B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA3860A70B3B944A7ACB74339F4972794B2603E38D69E7EA0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA3860A70B3B944A7ACB74339F4972794B2603E38D69E7EA0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA3D1C1319FB1EE466697013B492A537DF50B2CB8BBD22A87.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA3D1C1319FB1EE466697013B492A537DF50B2CB8BBD22A87_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA3D67DE1137F5382DF1FA2D1FCA81908745EFC3511F4CD9C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA3D67DE1137F5382DF1FA2D1FCA81908745EFC3511F4CD9C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA3D67DE1137F5382F34F4A0940395DCAA7DD0722E3E67493.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA3D67DE1137F5382F34F4A0940395DCAA7DD0722E3E67493_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA3F00A9B31186E9B120A21B2F8654B895A6CE7A7C2B7010A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA3F00A9B31186E9B120A21B2F8654B895A6CE7A7C2B7010A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA493CEB18FDED9A909C361632B6BE7F124261E9AE0B8153F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA493CEB18FDED9A909C361632B6BE7F124261E9AE0B8153F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA4950C0ACC3EF8B27254E91E15CC969DDF9BF7C200A2B945.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA4950C0ACC3EF8B27254E91E15CC969DDF9BF7C200A2B945_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA4B4F8BA185766C22D4008861F7B1E77EF8FDD5FC608D82E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA4B4F8BA185766C22D4008861F7B1E77EF8FDD5FC608D82E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA4B4F8BA185766C2DD74FDE9943CC08DA93A93E8E1DFAC15.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA4B4F8BA185766C2DD74FDE9943CC08DA93A93E8E1DFAC15_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA4D59B81F2E473A627002B789E7971D9B33E9549990A73C6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA4D59B81F2E473A627002B789E7971D9B33E9549990A73C6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA4D64354CFBAA70DB029AAA999531939E9DD4807CC0ACCC2.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA4D64354CFBAA70DB029AAA999531939E9DD4807CC0ACCC2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA5736BF1D6548AC69E1D384152F062008F77D25050E397F4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA5736BF1D6548AC69E1D384152F062008F77D25050E397F4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA587DD3F3B7DEFF324487D39123C2C626E291DCF7376E42D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA587DD3F3B7DEFF324487D39123C2C626E291DCF7376E42D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA5C007B2167B56E373C34A0053EF963CFBB1A2E856879D26.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA5C007B2167B56E373C34A0053EF963CFBB1A2E856879D26_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA659E69F833B05BB21DBB10048F9F43AFD7562CA75E089F5.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA659E69F833B05BB21DBB10048F9F43AFD7562CA75E089F5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA66CEAE1B2351EF9061F5C2EF272C6020662D2258D1784A4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA66CEAE1B2351EF9061F5C2EF272C6020662D2258D1784A4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA66CEAE1B2351EF9A123CEE1F7F017EC1466289E519D9E28.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA66CEAE1B2351EF9A123CEE1F7F017EC1466289E519D9E28_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA6885ECFAC658140234CF7659E0C602A21901A78F60E7F77.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA6885ECFAC658140234CF7659E0C602A21901A78F60E7F77_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA6E61E4E15A62519AAAE723617782AB9F2DA93CAAE5A0219.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA6E61E4E15A62519AAAE723617782AB9F2DA93CAAE5A0219_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA6FD89D310764F7745439AE747297835DCDE8439C089EC4F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA6FD89D310764F7745439AE747297835DCDE8439C089EC4F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA8783853AC1492F1BEECA64B03416D3BBF7BED1DE0985EA3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA8783853AC1492F1BEECA64B03416D3BBF7BED1DE0985EA3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA88C8EF3B0DD7C105F06B48C151FB6813378C955C1EA6203.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA88C8EF3B0DD7C105F06B48C151FB6813378C955C1EA6203_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA8D32A5ECB8168C7F4604548458D9F688890E7B72A77A1A8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA8D32A5ECB8168C7F4604548458D9F688890E7B72A77A1A8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA92FB80B3A6C412260E6651B0695D3E4BB37DF4B0B958496.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA92FB80B3A6C412260E6651B0695D3E4BB37DF4B0B958496_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA9699F56C35B1D82E9703F233BD3208C31BEBE3E7907731A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA9699F56C35B1D82E9703F233BD3208C31BEBE3E7907731A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA9790D652CB6D05C92E6AA5B2A87CDF102B6B5C8B92EB30C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA9790D652CB6D05C92E6AA5B2A87CDF102B6B5C8B92EB30C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxA99F1F57C0D78BB4975028D7451513ECFA1F8FDCC1D8291C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxA99F1F57C0D78BB4975028D7451513ECFA1F8FDCC1D8291C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAA273BD453728DAC178542491E52536C17E294ADCC76CB08.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAA273BD453728DAC178542491E52536C17E294ADCC76CB08_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAA4A09DA10FB3BF1FD33955272CCB989E4A91230EA99B1D0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAA4A09DA10FB3BF1FD33955272CCB989E4A91230EA99B1D0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAA65D147C435CAD5D711D4D03CE7EE6CD8FBD0995F71F8E1.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAA65D147C435CAD5D711D4D03CE7EE6CD8FBD0995F71F8E1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAAC0790F72C11A212DEA673071C71F172814ED2C4FBE33DE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAAC0790F72C11A212DEA673071C71F172814ED2C4FBE33DE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAAC0790F72C11A218649543318C0B0934E8AE52E0C790A88.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAAC0790F72C11A218649543318C0B0934E8AE52E0C790A88_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAAE23650B9B4AA345EB7CD76F65A787606B6A4C55C368DB8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAAE23650B9B4AA345EB7CD76F65A787606B6A4C55C368DB8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAAE23650B9B4AA34FC19B3EB0C8AD9B558DF076EA062D893.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAAE23650B9B4AA34FC19B3EB0C8AD9B558DF076EA062D893_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAB1E6165A4F97FA4FE3FB7CED514D82A0D51BBA8DB0E2996.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAB1E6165A4F97FA4FE3FB7CED514D82A0D51BBA8DB0E2996_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAB6294B37A449AA964BC84B740714D10CD41C7D4C33D551F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAB6294B37A449AA964BC84B740714D10CD41C7D4C33D551F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAB8413E050E6B483F28D7CEBAA5E4FCD6BE77076D62CC03A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAB8413E050E6B483F28D7CEBAA5E4FCD6BE77076D62CC03A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxABC17CFAF4F6320E505A7C6A13181DC809ABF975501DBCDE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxABC17CFAF4F6320E505A7C6A13181DC809ABF975501DBCDE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxABF6FDD87B0B73F19B814C758A8894708A51B9B5EB5CC401.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxABF6FDD87B0B73F19B814C758A8894708A51B9B5EB5CC401_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAC0234ABF4E1D10F4AD0FD22EFBDFD8396669E8B6915E601.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAC0234ABF4E1D10F4AD0FD22EFBDFD8396669E8B6915E601_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAC7AF4D4AA93212033604DA258A3C5D6345F8A2537466754.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAC7AF4D4AA93212033604DA258A3C5D6345F8A2537466754_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAC7B1B38B96FB7BD667F7AA8D95FA2E3AFDAFA42631FE379.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAC7B1B38B96FB7BD667F7AA8D95FA2E3AFDAFA42631FE379_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxACB9617CCE03C1D8C28CFD4B649F9EEB1424D85723BDD5EB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxACB9617CCE03C1D8C28CFD4B649F9EEB1424D85723BDD5EB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxACC4447A6BA1EC403FAB6F640D08F5A88F6A29DE3377AAA9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxACC4447A6BA1EC403FAB6F640D08F5A88F6A29DE3377AAA9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxACE4DC150A104C59EAB2D90DEA73A51C71F3C5716FF3FA96.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxACE4DC150A104C59EAB2D90DEA73A51C71F3C5716FF3FA96_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxACE4DC150A104C59EBFB93F5244D1163F4F88256C211F9EF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxACE4DC150A104C59EBFB93F5244D1163F4F88256C211F9EF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAD760D383496BF993B7C3CEF0B9AB2E3EC475B14006F010A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAD760D383496BF993B7C3CEF0B9AB2E3EC475B14006F010A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAE238E8191029A131318F8CCF587A791E2CC0BD5F7D57D80.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAE238E8191029A131318F8CCF587A791E2CC0BD5F7D57D80_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAE84E65DFAE5468A0DF71C5CBAF7E394833897B064792C49.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAE84E65DFAE5468A0DF71C5CBAF7E394833897B064792C49_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAEAB452B8148E0693BE2B17C694B413B079525301BD6871E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAEAB452B8148E0693BE2B17C694B413B079525301BD6871E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAEAB452B8148E069C525E7AC43CF55113D042814C416F5E4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAEAB452B8148E069C525E7AC43CF55113D042814C416F5E4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAF3DA5750B69E9563B8455022C045F1238ED679D42F2FCAF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAF3DA5750B69E9563B8455022C045F1238ED679D42F2FCAF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxAF3DA5750B69E956D4F2ADDC3AA55218AF66620AA1BA92CB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxAF3DA5750B69E956D4F2ADDC3AA55218AF66620AA1BA92CB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB03C746D57B71A3D860F8A8DA5FF0351F1A9C6BF623710A3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB03C746D57B71A3D860F8A8DA5FF0351F1A9C6BF623710A3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB06BFA95ACC19A1BC118657AD2BE2BE1DED5318B7CE6DC30.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB06BFA95ACC19A1BC118657AD2BE2BE1DED5318B7CE6DC30_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB0B65F16B756C04C10DB557AFD1ABF998061A1044CE55F0D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB0B65F16B756C04C10DB557AFD1ABF998061A1044CE55F0D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB21FB0DEB2B1D4EF7B1AC7D8513AE12E32E302099A6530F6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB21FB0DEB2B1D4EF7B1AC7D8513AE12E32E302099A6530F6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB22D1878278D3BF03FDC7DE7C41FF35397D34E011BBC1D5A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB22D1878278D3BF03FDC7DE7C41FF35397D34E011BBC1D5A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB2377D8D34D0A21075B50F5899C98EAD9EC1ADD69A063446.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB2377D8D34D0A21075B50F5899C98EAD9EC1ADD69A063446_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB257D7CAB6A2BBB1FC9E3FB91F79D11FB72D53418B2AD7E6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB257D7CAB6A2BBB1FC9E3FB91F79D11FB72D53418B2AD7E6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB304722538ECC8C844777B65CEF009FFB10289254AD0B202.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB304722538ECC8C844777B65CEF009FFB10289254AD0B202_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB37B766FA98EB172F4358F562A02176F61F691DA7C1AFBCE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB37B766FA98EB172F4358F562A02176F61F691DA7C1AFBCE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB37E1CC1CCB0A0DC0B3D60AD80125B43ADAAE0C8717CC0CC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB37E1CC1CCB0A0DC0B3D60AD80125B43ADAAE0C8717CC0CC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB37E1CC1CCB0A0DC5C9448C89F09222BA2AE06CAF45A4135.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB37E1CC1CCB0A0DC5C9448C89F09222BA2AE06CAF45A4135_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB506B2272F125EB0A5851A203282C03E5F16118AA97798EF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB506B2272F125EB0A5851A203282C03E5F16118AA97798EF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB5837FCBA699D78F704AB333AE198A5DC67F47FE18BE61AE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB5837FCBA699D78F704AB333AE198A5DC67F47FE18BE61AE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB632718A589D2E6979A0795C786A12100D22627F2BBF3CFC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB632718A589D2E6979A0795C786A12100D22627F2BBF3CFC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB75028940E6684147107D401A7E501BEA366F6EE3A9F527D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB75028940E6684147107D401A7E501BEA366F6EE3A9F527D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB76402A4CB4B5D54C00A30F3E999F71D29DB17A87A63228E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB76402A4CB4B5D54C00A30F3E999F71D29DB17A87A63228E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB7B55BFB145A343D06B37D039EC47901EF9B1D11A836893F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB7B55BFB145A343D06B37D039EC47901EF9B1D11A836893F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB7B55BFB145A343D3326E0AE0CF6188183B10F3FB55D6E51.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB7B55BFB145A343D3326E0AE0CF6188183B10F3FB55D6E51_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB7B55BFB145A343D49B4E988FCCD3DCF867EE9B954124CC6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB7B55BFB145A343D49B4E988FCCD3DCF867EE9B954124CC6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB7B55BFB145A343DB765258B0168F4083BE1972BD26F6D27.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB7B55BFB145A343DB765258B0168F4083BE1972BD26F6D27_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB7D0B8532AC67796F7A9C1CD3F5D0E322EA7EF5992C6CA28.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB7D0B8532AC67796F7A9C1CD3F5D0E322EA7EF5992C6CA28_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB97DC74E3BD1FC3EA2A39E78A59307BC77D5BCFB817840A0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB97DC74E3BD1FC3EA2A39E78A59307BC77D5BCFB817840A0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB98B85147CC28210B6234DA9EB7291C8671FD05EF1B163A3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB98B85147CC28210B6234DA9EB7291C8671FD05EF1B163A3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxB98D6A25EFB6B46257F13934DCBB67D67AABF1C197EBE918.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxB98D6A25EFB6B46257F13934DCBB67D67AABF1C197EBE918_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBB3DA9A26362010408F93623114AC6FC48DDF06AC08A330B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBB3DA9A26362010408F93623114AC6FC48DDF06AC08A330B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBC48DEDAFC634693369C437ECA036D138D526992710C1E35.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBC48DEDAFC634693369C437ECA036D138D526992710C1E35_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBCBA63BCCC1F7498AA92F4AF08511FFED09105BBFC63864E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBCBA63BCCC1F7498AA92F4AF08511FFED09105BBFC63864E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBCBA63BCCC1F7498FED5EE52802F4CB8572148F71BB5DEF3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBCBA63BCCC1F7498FED5EE52802F4CB8572148F71BB5DEF3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBD12CBC5C10EDBB74BB5F0BD1DCAE7CE747854FC26ECB0BD.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBD12CBC5C10EDBB74BB5F0BD1DCAE7CE747854FC26ECB0BD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBD18E2DB7C51055D5BA0317AF712F4D62E832C8FF35E916A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBD18E2DB7C51055D5BA0317AF712F4D62E832C8FF35E916A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBD18E2DB7C51055D98D919A70E777B443B1839383002FDC0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBD18E2DB7C51055D98D919A70E777B443B1839383002FDC0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBD701431A8CE2FCB64098D585DF85DEA5181054BC20287D9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBD701431A8CE2FCB64098D585DF85DEA5181054BC20287D9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBD795C706A61AD0B20883C21877B09AFE59A5712FEC79EE6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBD795C706A61AD0B20883C21877B09AFE59A5712FEC79EE6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBDAEDDE98351E478390DEB26B963A196E4A1B3D14C84E4F9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBDAEDDE98351E478390DEB26B963A196E4A1B3D14C84E4F9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBEDA1D54EFEE77C5738FB5212C79AF06F67D93F2ACB61181.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBEDA1D54EFEE77C5738FB5212C79AF06F67D93F2ACB61181_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBF0F698B411246917A364BB025AA55E8D9B87833BB0D243D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBF0F698B411246917A364BB025AA55E8D9B87833BB0D243D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBF9F6B8246A17E801F8444628309579BB19B24E8CCEC8153.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBF9F6B8246A17E801F8444628309579BB19B24E8CCEC8153_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxBFC362B2190DDFF8D3544073C39876A387B7143312625D30.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxBFC362B2190DDFF8D3544073C39876A387B7143312625D30_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC00AC887E580A4399B5056E80AC55C95B43C634576F25D38.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC00AC887E580A4399B5056E80AC55C95B43C634576F25D38_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC03412C145236A975609D495BC44B224260C3D9C4B96F23F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC03412C145236A975609D495BC44B224260C3D9C4B96F23F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC12A3E53C68E43C08218A1D261005883B0DF75AB7EC74631.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC12A3E53C68E43C08218A1D261005883B0DF75AB7EC74631_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC21457C628454D036163771228053A7B04598F4CE0729DCE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC21457C628454D036163771228053A7B04598F4CE0729DCE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC302B531947E9D201CDC1FED08DC86F9DA4EFC29D26F9395.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC302B531947E9D201CDC1FED08DC86F9DA4EFC29D26F9395_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC406494721881851E1F496D5B54F4BCAD696815C35261E8B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC406494721881851E1F496D5B54F4BCAD696815C35261E8B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC503A28B6BA92D6C0C9D87384B3B6CF6823CCA627A333938.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC503A28B6BA92D6C0C9D87384B3B6CF6823CCA627A333938_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC5A60F462D64FC58AE3EF3CFC49C43D1F431325347CE517D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC5A60F462D64FC58AE3EF3CFC49C43D1F431325347CE517D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC5B47FC8970E84C0A97545B64C3ABB98FA94324938D6CF7A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC5B47FC8970E84C0A97545B64C3ABB98FA94324938D6CF7A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC6318FB836AF67167CE6490FFAE77E15B56B251B3A041BB8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC6318FB836AF67167CE6490FFAE77E15B56B251B3A041BB8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC737C208E6570BA6984B75AC38E3C1588195434CDC017712.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC737C208E6570BA6984B75AC38E3C1588195434CDC017712_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC73F3156008A07EBD69E384ECE987A0EF33EABE28189C16C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC73F3156008A07EBD69E384ECE987A0EF33EABE28189C16C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC7727DD69A597334CAC5442CC8D6A29205AD44A84A5D7413.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC7727DD69A597334CAC5442CC8D6A29205AD44A84A5D7413_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC77C44FFAF20FF4D0097F83493E57B79C4CC5340939DE0AF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC77C44FFAF20FF4D0097F83493E57B79C4CC5340939DE0AF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC826DAC67B41123025DA20E3AD13E51B6635CBC9F77937C7.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC826DAC67B41123025DA20E3AD13E51B6635CBC9F77937C7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC8B75DF8D012DD456F86FF58D58AA7094D2A7E810CDF8B89.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC8B75DF8D012DD456F86FF58D58AA7094D2A7E810CDF8B89_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC91A03F282E7ACD722E61B901D4E1C17D67E09F5A338B54B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC91A03F282E7ACD722E61B901D4E1C17D67E09F5A338B54B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC947111E5302673E7B5336FD32C66BE6ACDD4B0D88053726.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC947111E5302673E7B5336FD32C66BE6ACDD4B0D88053726_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxC947111E5302673E8F1E6011EBDEB6DB454BBC84348ED44D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxC947111E5302673E8F1E6011EBDEB6DB454BBC84348ED44D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCA065A9EBA3CD2FEBF2D7988CE5C02639004993FDACC584C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCA065A9EBA3CD2FEBF2D7988CE5C02639004993FDACC584C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCAE3BA395D8A16C03B99832D4D91B87170F2E863B2B502C0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCAE3BA395D8A16C03B99832D4D91B87170F2E863B2B502C0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCBB6AB235F8ED687B2E5F9B7E53A17774B138022B5AC6C06.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCBB6AB235F8ED687B2E5F9B7E53A17774B138022B5AC6C06_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCC42A7155619FA371FB3DB2B935EACC3D6EBD78BBFB45C31.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCC42A7155619FA371FB3DB2B935EACC3D6EBD78BBFB45C31_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCC42A7155619FA3723A3480D50BA7AEF6E56FB0AEBDED37E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCC42A7155619FA3723A3480D50BA7AEF6E56FB0AEBDED37E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCC42A7155619FA37696F6AC52A2BFB096D4099EADECA102B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCC42A7155619FA37696F6AC52A2BFB096D4099EADECA102B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCC856535297BF790CD4E1DD7BE48287AA4388D720C3EE609.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCC856535297BF790CD4E1DD7BE48287AA4388D720C3EE609_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCCAD69483E1ACED22C04C1D9E52283557FB83E247458ED16.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCCAD69483E1ACED22C04C1D9E52283557FB83E247458ED16_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCD138093124CBE786F17D95DA59451835AABC33BC92BFA08.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCD138093124CBE786F17D95DA59451835AABC33BC92BFA08_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCD257EAFFF590C8D384A40AF09D935286DF87F244B7F3775.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCD257EAFFF590C8D384A40AF09D935286DF87F244B7F3775_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCD32F5B7681F372A88B3BBD26D9A96CC175CE6CFB96DCD5F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCD32F5B7681F372A88B3BBD26D9A96CC175CE6CFB96DCD5F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCDA55434361C322D5A7B1D1BAF7053A6FE617652236BAFE6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCDA55434361C322D5A7B1D1BAF7053A6FE617652236BAFE6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCDBAABEAFF0945F2DA1AD4FCD880F23DB474DA1FEF110000.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCDBAABEAFF0945F2DA1AD4FCD880F23DB474DA1FEF110000_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCDBAABEAFF0945F2F51DDE708608B8FF955E96D01442BFCB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCDBAABEAFF0945F2F51DDE708608B8FF955E96D01442BFCB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCDF84F878A35674F0EA93802F8AC19331D291374E53ABFF3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCDF84F878A35674F0EA93802F8AC19331D291374E53ABFF3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCE3233B397229FB57DAF857481BD37BC969F4FA2ED9DC368.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCE3233B397229FB57DAF857481BD37BC969F4FA2ED9DC368_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCE7B50D10790FBB39FC1B6628A65F67A6C2985DB420ED52D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCE7B50D10790FBB39FC1B6628A65F67A6C2985DB420ED52D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCEAADBFE3E9E3BE3C5826BBFA949786D726FF1ECD0F66550.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCEAADBFE3E9E3BE3C5826BBFA949786D726FF1ECD0F66550_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCEE7370FFD5B76396A645657D137C9BDF605494DD491495F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCEE7370FFD5B76396A645657D137C9BDF605494DD491495F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCEE7370FFD5B7639DB5450230398A3E2755399858B4FB4CF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCEE7370FFD5B7639DB5450230398A3E2755399858B4FB4CF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCF53832A87A2A46F03F446DEA9CBDC35495D8AEDAD135C28.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCF53832A87A2A46F03F446DEA9CBDC35495D8AEDAD135C28_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxCFA9C6201E4F0D869A606586FE8E4F72A47076447E1C019E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxCFA9C6201E4F0D869A606586FE8E4F72A47076447E1C019E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD0A2B4448866BE260C17D6EC02D17FE93428DE78EA7D891E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD0A2B4448866BE260C17D6EC02D17FE93428DE78EA7D891E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD0D2911E085A983D6671361E4B4C6D3FC7C35E31ACDA7D2D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD0D2911E085A983D6671361E4B4C6D3FC7C35E31ACDA7D2D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD1B631F69DBC3DEBF37414EEB04811A4324DA6C04CF7755C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD1B631F69DBC3DEBF37414EEB04811A4324DA6C04CF7755C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD246E0861FA461FEF9102BD21868EA7DA8E53DD651292A31.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD246E0861FA461FEF9102BD21868EA7DA8E53DD651292A31_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD26D574FB8A8997517EAD6CBA252D0260177319EDE6F8B2E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD26D574FB8A8997517EAD6CBA252D0260177319EDE6F8B2E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD26D574FB8A899756132B8BFC67A656D4F934414F840EEE7.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD26D574FB8A899756132B8BFC67A656D4F934414F840EEE7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD2F758309F2A7F030892DF6DA54A0FD72A5F54C5F7525E21.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD2F758309F2A7F030892DF6DA54A0FD72A5F54C5F7525E21_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD2FBB4FF1C67CBFF9F74149571CFB50D96778C44FB2E6925.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD2FBB4FF1C67CBFF9F74149571CFB50D96778C44FB2E6925_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3A1E3E05CB6DAF6253A186B00684DCF2B1456D2C8A4C6E4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3A1E3E05CB6DAF6253A186B00684DCF2B1456D2C8A4C6E4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3CB0C4524F67A4D1B248517BD74525E363D1A47170D6D9E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3CB0C4524F67A4D1B248517BD74525E363D1A47170D6D9E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3CB0C4524F67A4D646342B31322E3423F01E5FC56377C1A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3CB0C4524F67A4D646342B31322E3423F01E5FC56377C1A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3CB0C4524F67A4DC5FBFBA465B378E9AC0BACDD0EF9709F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3CB0C4524F67A4DC5FBFBA465B378E9AC0BACDD0EF9709F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3CB0C4524F67A4DE1B73D2F73ECB0AD3A977955E0723A65.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3CB0C4524F67A4DE1B73D2F73ECB0AD3A977955E0723A65_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD3CE7A44D5758F55184AD0B489A4B11590D73AB825543485.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD3CE7A44D5758F55184AD0B489A4B11590D73AB825543485_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4239CF331412759E7CB0E19371370F77FB73C911058F88F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4239CF331412759E7CB0E19371370F77FB73C911058F88F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4239CF331412759F1486169DA0268914B82EFFBAD8DCCE8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4239CF331412759F1486169DA0268914B82EFFBAD8DCCE8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4C1AF01E7091BC3AB7EAE60CEAB8E356341351816C62D07.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4C1AF01E7091BC3AB7EAE60CEAB8E356341351816C62D07_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4C1AF01E7091BC3D79A3DB1D0455BC0C143FAFF7D3B1036.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4C1AF01E7091BC3D79A3DB1D0455BC0C143FAFF7D3B1036_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4CE4B3B95995BE6E2E7864BDCEBFCDCF32B2C8F5579C682.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4CE4B3B95995BE6E2E7864BDCEBFCDCF32B2C8F5579C682_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD4CF37EF147DDEE980BAB4F5256CC86CA734F199E5512303.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD4CF37EF147DDEE980BAB4F5256CC86CA734F199E5512303_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD5641DC2CF623756BAD8376E4F115597BE8498D65B27171B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD5641DC2CF623756BAD8376E4F115597BE8498D65B27171B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD5E948C05461036341B88C0FFADF9B249FBE732D0D04EE04.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD5E948C05461036341B88C0FFADF9B249FBE732D0D04EE04_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD5F8B7159FF3E7A2505AC148847D33C0617D505DE63C90DD.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD5F8B7159FF3E7A2505AC148847D33C0617D505DE63C90DD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD60E89EC0F1BAB99880FC7C708FCB91A8C6C9016A4C07EE1.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD60E89EC0F1BAB99880FC7C708FCB91A8C6C9016A4C07EE1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD6C4F406BC86A11674870FC931D83E6EC6103F574DA73EB6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD6C4F406BC86A11674870FC931D83E6EC6103F574DA73EB6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD6C4F406BC86A116D7BB2ABC21FCDFCBA4130E5D631FD37D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD6C4F406BC86A116D7BB2ABC21FCDFCBA4130E5D631FD37D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD6DF80C967D2E90E1C9C5C27C1E582E828600D58A5E60075.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD6DF80C967D2E90E1C9C5C27C1E582E828600D58A5E60075_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD6DF80C967D2E90E940E324ADA5DC75FB2EACEE9B975DC65.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD6DF80C967D2E90E940E324ADA5DC75FB2EACEE9B975DC65_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD6DF80C967D2E90EBC2FEF38B1FF4CA7300C08C43BAD9AF0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD6DF80C967D2E90EBC2FEF38B1FF4CA7300C08C43BAD9AF0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD71EEE470B02A3F9A6E9392C61F29ABA2BF148719238E49D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD71EEE470B02A3F9A6E9392C61F29ABA2BF148719238E49D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD75CC02AC0569F138B2A31126FFDC8E423AEAF8780510D07.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD75CC02AC0569F138B2A31126FFDC8E423AEAF8780510D07_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD7FF1A5CCDB3268EB8F0E8BED1F6BC4E036E21F79A779D91.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD7FF1A5CCDB3268EB8F0E8BED1F6BC4E036E21F79A779D91_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD8B230C0D0BEF0B9672C0DC060C5AA5FA3004A55B570427D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD8B230C0D0BEF0B9672C0DC060C5AA5FA3004A55B570427D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD8B95D482831EFF00D2BB3D481433C0A924C3D020E8A3231.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD8B95D482831EFF00D2BB3D481433C0A924C3D020E8A3231_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxD98473A9FF420798519F7DE551DA5AA0E3449DD102379136.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxD98473A9FF420798519F7DE551DA5AA0E3449DD102379136_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDAAC876CFA3449393E221D61C00718DF4B6518BE90AF2800.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDAAC876CFA3449393E221D61C00718DF4B6518BE90AF2800_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDAAC876CFA344939B56A8FA4A9C2A0F0CF2E01E5A7BBD71F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDAAC876CFA344939B56A8FA4A9C2A0F0CF2E01E5A7BBD71F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDAADCC811EB06CD6036574077638DB70FD14E6F1C6BD4DA0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDAADCC811EB06CD6036574077638DB70FD14E6F1C6BD4DA0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDAFFB1D590F380D577E92A3E75618B9A54A1E02F3C6B05A2.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDAFFB1D590F380D577E92A3E75618B9A54A1E02F3C6B05A2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDC02DACADFA8F2EE23859AFF42F9C5EEADD9086044C13C2F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDC02DACADFA8F2EE23859AFF42F9C5EEADD9086044C13C2F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDC7428EC3D364278C8C572A91D43CE78DBA3BE21C586EB3F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDC7428EC3D364278C8C572A91D43CE78DBA3BE21C586EB3F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDC93EC2BB81B007F33928801B97350A6D04B45D18D49D8DB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDC93EC2BB81B007F33928801B97350A6D04B45D18D49D8DB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDD934EA54F9887DE7226F9600B5832B9F911E437BB3C7E8B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDD934EA54F9887DE7226F9600B5832B9F911E437BB3C7E8B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDDC98783970DFB11D4A232662B73F4B55348FEB38E7FB3BB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDDC98783970DFB11D4A232662B73F4B55348FEB38E7FB3BB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDDCE376763976E9B39DF8D27930E5D778F03F9FEDDBC93FB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDDCE376763976E9B39DF8D27930E5D778F03F9FEDDBC93FB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDE6E31871D3BCA3D46EE27E9AA51F93AB021F98290A56E90.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDE6E31871D3BCA3D46EE27E9AA51F93AB021F98290A56E90_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDF0A09367AE792F5AC3F13CE884AA881C81F5D851CCFA042.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDF0A09367AE792F5AC3F13CE884AA881C81F5D851CCFA042_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDF3DC44BB2FB0AB2DA9CC3A8231C0A5903627DFBF3950A49.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDF3DC44BB2FB0AB2DA9CC3A8231C0A5903627DFBF3950A49_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxDF52BE07D8B451590C980B79E102F084B2CA2A249043B4F7.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxDF52BE07D8B451590C980B79E102F084B2CA2A249043B4F7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE083D32FF1E7514B0EDA38FFAE02012D86DDA8048E23E970.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE083D32FF1E7514B0EDA38FFAE02012D86DDA8048E23E970_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE083D32FF1E7514BB2C10F023D95C83EB001D6872FE26011.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE083D32FF1E7514BB2C10F023D95C83EB001D6872FE26011_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE0AE769C4E0DA3D0B09A0DC1C10A72996137BE937DA56ECB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE0AE769C4E0DA3D0B09A0DC1C10A72996137BE937DA56ECB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE19A26EE88FD1A5FDD1D4B225EB98B385544451605D664CB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE19A26EE88FD1A5FDD1D4B225EB98B385544451605D664CB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE1BDE57D85B29E6B15D177EDCC0F89D6C6A550710B94F025.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE1BDE57D85B29E6B15D177EDCC0F89D6C6A550710B94F025_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE1BEB9512A571D2E99020DC75503D198D8B93858B7A0C5DA.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE1BEB9512A571D2E99020DC75503D198D8B93858B7A0C5DA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE1C1EDEA0C9958088B1F8DDDB67DA5BE4C07D089FFF2341C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE1C1EDEA0C9958088B1F8DDDB67DA5BE4C07D089FFF2341C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE21C85C15C106DC872B2004FDBDDABCDF5E809CB43226796.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE21C85C15C106DC872B2004FDBDDABCDF5E809CB43226796_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE247A12F8E55F962276E63028E66629A545B16754A43A10D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE247A12F8E55F962276E63028E66629A545B16754A43A10D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE379608F86D71DD9646D356111707185B39FB15D03AB10CF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE379608F86D71DD9646D356111707185B39FB15D03AB10CF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE40263269849298C9B82E3E259D319CD00326138BAED92EC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE40263269849298C9B82E3E259D319CD00326138BAED92EC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE404B57455DB220618733B94A9C0E789AEB8E30AE3AEA44F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE404B57455DB220618733B94A9C0E789AEB8E30AE3AEA44F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE4394052AA994301FCCF1981DCAB7FA6894C9CA788A8ACDC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE4394052AA994301FCCF1981DCAB7FA6894C9CA788A8ACDC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE4B06F9D3330C64E3A3B6CBE49F2672B30913D7F3B9A6F91.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE4B06F9D3330C64E3A3B6CBE49F2672B30913D7F3B9A6F91_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE4E1AD806CFDD7387E31269942B1C41457D1083FF77EBDA9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE4E1AD806CFDD7387E31269942B1C41457D1083FF77EBDA9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE51CD6EA3575F74215EDBE0D4E68DB731A4D9BF04E148504.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE51CD6EA3575F74215EDBE0D4E68DB731A4D9BF04E148504_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE51CD6EA3575F7427A643DAF6A69364FF2F87E167717AFB2.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE51CD6EA3575F7427A643DAF6A69364FF2F87E167717AFB2_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE51CD6EA3575F742F16697D93AAB0FC5685020198DD07026.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE51CD6EA3575F742F16697D93AAB0FC5685020198DD07026_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE51CD6EA3575F742FB1EB0773C7CB441A80836F0DE8DB3A9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE51CD6EA3575F742FB1EB0773C7CB441A80836F0DE8DB3A9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE5D510997A6C170C726F8AC962519B52E5615D89C34CE030.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE5D510997A6C170C726F8AC962519B52E5615D89C34CE030_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE62B5B6443A95B3A5713E8421C66F78DD835DE3F31E5A4DB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE62B5B6443A95B3A5713E8421C66F78DD835DE3F31E5A4DB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE71B4C9943155CFC6C816D437F8F2C635B530E56B512DB2E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE71B4C9943155CFC6C816D437F8F2C635B530E56B512DB2E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE7279474581D135218F20333FE314E94583F697B1F36C9A1.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE7279474581D135218F20333FE314E94583F697B1F36C9A1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE76F21E1207D9B33203B948479CE51CF2660CA56CEF4802F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE76F21E1207D9B33203B948479CE51CF2660CA56CEF4802F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE76F21E1207D9B333A8ACB0D226F0AE32CAE95B9A3719154.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE76F21E1207D9B333A8ACB0D226F0AE32CAE95B9A3719154_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE7D33E9191145656D2090033DDB15467D0ABEF5B9CD3BA07.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE7D33E9191145656D2090033DDB15467D0ABEF5B9CD3BA07_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE7E2340E9CF9166B6678365A0067728037A84C3D9AFF7C54.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE7E2340E9CF9166B6678365A0067728037A84C3D9AFF7C54_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE7E2340E9CF9166BF0A907CA26D681BCC9AA5D58036067C3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE7E2340E9CF9166BF0A907CA26D681BCC9AA5D58036067C3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE838529A9632FE4ED138A9C6833B57C5AA66F9A094A926EC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE838529A9632FE4ED138A9C6833B57C5AA66F9A094A926EC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE84E7BDF03716E4777D192E2B3EFC3F52E88D0AEA4B2D2B4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE84E7BDF03716E4777D192E2B3EFC3F52E88D0AEA4B2D2B4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE8BB30B13CD98B71FBDEFD813621F5B6C62329C1F80AE0BF.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE8BB30B13CD98B71FBDEFD813621F5B6C62329C1F80AE0BF_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE9221E1FC86DE0DDD166CB91CB6770DB293046EECA5CF889.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE9221E1FC86DE0DDD166CB91CB6770DB293046EECA5CF889_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE973E9FCEBE3F7263431A7B7D86046C56FFE33AB14126156.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE973E9FCEBE3F7263431A7B7D86046C56FFE33AB14126156_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxE973E9FCEBE3F726D6E4569815ABEF96F5C03D19C5C421D7.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxE973E9FCEBE3F726D6E4569815ABEF96F5C03D19C5C421D7_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEA4F23B79CF6B8981977B8B2A2F930403ABA5D6E4227FB82.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEA4F23B79CF6B8981977B8B2A2F930403ABA5D6E4227FB82_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEA628EF42779B6CE7E30493E1FAA3EC3F9F22FB4DA178DDB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEA628EF42779B6CE7E30493E1FAA3EC3F9F22FB4DA178DDB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEA84E9C33FF59089079E65848869AE432A0E481F841465AE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEA84E9C33FF59089079E65848869AE432A0E481F841465AE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEC0E5E55E3DBBEEEFF25AEE8D486FF799B784094D0691E46.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEC0E5E55E3DBBEEEFF25AEE8D486FF799B784094D0691E46_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEC4B3844F2A31399BBCEA3D0AD8E65FB317414DAF0A4BF04.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEC4B3844F2A31399BBCEA3D0AD8E65FB317414DAF0A4BF04_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEC4B3844F2A31399E6F4425E419F18603BBC720D8BDF8589.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEC4B3844F2A31399E6F4425E419F18603BBC720D8BDF8589_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxED2E914A90709FC7025E86E7E0C607F5DDFF77BFA7DF33AD.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxED2E914A90709FC7025E86E7E0C607F5DDFF77BFA7DF33AD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxED2E914A90709FC7AA6D521F96ECF8FBC5E1BDE9B0B33F80.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxED2E914A90709FC7AA6D521F96ECF8FBC5E1BDE9B0B33F80_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxED2E914A90709FC7ABF2128E5E869C16038B04D30BA302CA.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxED2E914A90709FC7ABF2128E5E869C16038B04D30BA302CA_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEDA3B604F954952A1B17F96513DFFF49661FFEC58FB62C8D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEDA3B604F954952A1B17F96513DFFF49661FFEC58FB62C8D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEDA3B604F954952AD37479E6397076219F913FA374133536.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEDA3B604F954952AD37479E6397076219F913FA374133536_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEDAC8FBEDCAA7CDF1EFEC9F6632D7ABCABDB4A3B4DF2103C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEDAC8FBEDCAA7CDF1EFEC9F6632D7ABCABDB4A3B4DF2103C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEDC3B8653928851A2D4A9E8C15F06DAFFA206D965821B634.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEDC3B8653928851A2D4A9E8C15F06DAFFA206D965821B634_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEDE48C5B4D220391526FD0794173A5FD0153C6526362987C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEDE48C5B4D220391526FD0794173A5FD0153C6526362987C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEE9C011A6281CD150FDA654D8FA330DC28BF038E2A0AF9C3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEE9C011A6281CD150FDA654D8FA330DC28BF038E2A0AF9C3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEEE8DBA4F76BDE201ED4EFE8362A11C774ED0E05F09F2146.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEEE8DBA4F76BDE201ED4EFE8362A11C774ED0E05F09F2146_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEEF586ADFB6E46F62FB6693837C48E4682A4D4517F457635.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEEF586ADFB6E46F62FB6693837C48E4682A4D4517F457635_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEF0BE9C4F50812C7588CC926E37C66096A185BF929592C69.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEF0BE9C4F50812C7588CC926E37C66096A185BF929592C69_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEF9D1B1DF042534A0939E5FB0778C2616810D53369BE544D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEF9D1B1DF042534A0939E5FB0778C2616810D53369BE544D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxEFE5BD25C865B7E8EC5C4FB637D285F20044EECAA9ADF616.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxEFE5BD25C865B7E8EC5C4FB637D285F20044EECAA9ADF616_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF04C2DF647FC447F3743DCA712745B7BD7A7297A54FE5FC8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF04C2DF647FC447F3743DCA712745B7BD7A7297A54FE5FC8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF1141B608E0DB6FFD087499CA1EE80EF6EBBF7089754B466.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF1141B608E0DB6FFD087499CA1EE80EF6EBBF7089754B466_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF1263E938D17E1CD8CCEE22297A51F306D5B93C1DBD4BDBC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF1263E938D17E1CD8CCEE22297A51F306D5B93C1DBD4BDBC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF21344F244DC0BDA313A08EBC59DD9D38C96FCC9A7DB2DB4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF21344F244DC0BDA313A08EBC59DD9D38C96FCC9A7DB2DB4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF2705A350ACE282D407763E07A9521B129903BCDED48B8DD.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF2705A350ACE282D407763E07A9521B129903BCDED48B8DD_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF2CBBEF4B2DBE32F70C902DAE7CDD8738979F5595658F783.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF2CBBEF4B2DBE32F70C902DAE7CDD8738979F5595658F783_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF315D58E2CF14B76EA69E8709BBFC07A2CA3FC1E068040D5.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF315D58E2CF14B76EA69E8709BBFC07A2CA3FC1E068040D5_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF315E683A82DD572491CCFD95E06CE8D48242B630B275726.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF315E683A82DD572491CCFD95E06CE8D48242B630B275726_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF3EDCFF4D2AB58B7AF8CD5FEA1AE792A697564A3A0D1158C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF3EDCFF4D2AB58B7AF8CD5FEA1AE792A697564A3A0D1158C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF3EDCFF4D2AB58B7B057CA8F15C5213975B3648FE3EDDAC9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF3EDCFF4D2AB58B7B057CA8F15C5213975B3648FE3EDDAC9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF4650E9B1504D7A61A287B264E50A320FC0F56206D8F889A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF4650E9B1504D7A61A287B264E50A320FC0F56206D8F889A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF4E35FFB8721136A4933F9FBDB076B935DC6F2B47E42125B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF4E35FFB8721136A4933F9FBDB076B935DC6F2B47E42125B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF4E35FFB8721136AF9AA14E6F0C380A4C0B3BAB5F2560EE8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF4E35FFB8721136AF9AA14E6F0C380A4C0B3BAB5F2560EE8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF5096D162C108C6D1633924346CE778E67DA71A47BCECD0E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF5096D162C108C6D1633924346CE778E67DA71A47BCECD0E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF58A14D8AA05B54FD82F791D4C0A024ECD0F41D9CB4E740D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF58A14D8AA05B54FD82F791D4C0A024ECD0F41D9CB4E740D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF652001E94225B4A23A4A954155BE1BEB9FA4804B68769F6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF652001E94225B4A23A4A954155BE1BEB9FA4804B68769F6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF652001E94225B4ADFB12383336103ECFEBA6D204AA32B9E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF652001E94225B4ADFB12383336103ECFEBA6D204AA32B9E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF66AF9C3CA0DD99E006E8F6FA52C8A3ABA723F5A21294F9A.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF66AF9C3CA0DD99E006E8F6FA52C8A3ABA723F5A21294F9A_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF68BEE7E1F60DFA9C9AB9165A7C798CF667472DA902812F6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF68BEE7E1F60DFA9C9AB9165A7C798CF667472DA902812F6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF6C74D5FFC69B6EAB402E825C2C7190CDBFFE4FBF2B6BC74.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF6C74D5FFC69B6EAB402E825C2C7190CDBFFE4FBF2B6BC74_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF6EE91DABD349B4A40832147C04C15C06A14E3CCD221F33C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF6EE91DABD349B4A40832147C04C15C06A14E3CCD221F33C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF6EE91DABD349B4AB88DFDE359B6D2C44837410638B68866.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF6EE91DABD349B4AB88DFDE359B6D2C44837410638B68866_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF740369C873AA046C77D3A7F253BB0780E00233DB92B4037.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF740369C873AA046C77D3A7F253BB0780E00233DB92B4037_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF77F6D49315BC4745300157B6FABC8BEE25F0F4C4C0209DC.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF77F6D49315BC4745300157B6FABC8BEE25F0F4C4C0209DC_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF78584259A680C72789533BACB5A9B762D04B3EFE5A3376E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF78584259A680C72789533BACB5A9B762D04B3EFE5A3376E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF78584259A680C72F8E790CB81DFB1AD7CE260C49C0D9692.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF78584259A680C72F8E790CB81DFB1AD7CE260C49C0D9692_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF7E38D9EAC1BF4A8900F4833760CD4BC93B28F2DD1DA4662.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF7E38D9EAC1BF4A8900F4833760CD4BC93B28F2DD1DA4662_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF7E38D9EAC1BF4A89DE0FBC6B8A3E2248ACFFDE3782E18AE.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF7E38D9EAC1BF4A89DE0FBC6B8A3E2248ACFFDE3782E18AE_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF8C431A13165137AB38AD9F8401ECF01C7FF9311D4C5EFFB.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF8C431A13165137AB38AD9F8401ECF01C7FF9311D4C5EFFB_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF8D0A211F87F12AF7B420DB5FDFE118A6D4C1A911885425B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF8D0A211F87F12AF7B420DB5FDFE118A6D4C1A911885425B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF9654BAB07B0415EC280458E14F382A4DABCC4076DF3359D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF9654BAB07B0415EC280458E14F382A4DABCC4076DF3359D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF9F4AF14D7B1EF7C3EE19FF778359FEE681702C00D80568F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF9F4AF14D7B1EF7C3EE19FF778359FEE681702C00D80568F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF9F4AF14D7B1EF7CE722B4FC916ECAA3B0DD72CD861A4460.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF9F4AF14D7B1EF7CE722B4FC916ECAA3B0DD72CD861A4460_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxF9FB7F731AE2DCEAA653D01FDDCFB8C1F55078F52FD3CBF0.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxF9FB7F731AE2DCEAA653D01FDDCFB8C1F55078F52FD3CBF0_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFA97E60E42060D9059E3756F2068A6F7F11DCA3C42469C33.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFA97E60E42060D9059E3756F2068A6F7F11DCA3C42469C33_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFB899E31B6D8BE100DFFC67985BA43EDB2743EE7A3CCE22C.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFB899E31B6D8BE100DFFC67985BA43EDB2743EE7A3CCE22C_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFBB0181FCAF1CAB696C6F9AE42517E0BA6245896131FB124.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFBB0181FCAF1CAB696C6F9AE42517E0BA6245896131FB124_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFBBCCC5E909887D98798E50C1BA4E75F67FFFBF33B653064.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFBBCCC5E909887D98798E50C1BA4E75F67FFFBF33B653064_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFC07BE7D85CCF82D60FB84BBFD2CBA613C665DEABDEBCB7F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFC07BE7D85CCF82D60FB84BBFD2CBA613C665DEABDEBCB7F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFC585268A1A63205CF3C1BB8A4A0A2C32F68004414D9F1D1.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFC585268A1A63205CF3C1BB8A4A0A2C32F68004414D9F1D1_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFC844751E4BC264FA5C360F4807B1B04F639935B755AE982.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFC844751E4BC264FA5C360F4807B1B04F639935B755AE982_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFD05F92AFD745EFDDF1E3123D3080D14D0C5EB6FD54083D9.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFD05F92AFD745EFDDF1E3123D3080D14D0C5EB6FD54083D9_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFD808B7419E590990E1632C52DF44EE1E26A2CBF9C4A616D.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFD808B7419E590990E1632C52DF44EE1E26A2CBF9C4A616D_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFD808B7419E590992EA61CABB2AFFA616410E02635529AD8.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFD808B7419E590992EA61CABB2AFFA616410E02635529AD8_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFD8D565F7CFAEA22C980A585E7A7937AAE5EB20D3C6590E3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFD8D565F7CFAEA22C980A585E7A7937AAE5EB20D3C6590E3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFE087EAB297CA731B8DBD01407C31C992274CA97F8770F37.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFE087EAB297CA731B8DBD01407C31C992274CA97F8770F37_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFE269EDFD4EE0330B3D6C645D89AE017B8B14C72E713EBB4.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFE269EDFD4EE0330B3D6C645D89AE017B8B14C72E713EBB4_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFE280A8E0C448EA083FEDDDC85B47E70AF62C489881C066B.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFE280A8E0C448EA083FEDDDC85B47E70AF62C489881C066B_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFEFF9C9555D60C4A447AE2172976D86C6F1E6018597F8530.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFEFF9C9555D60C4A447AE2172976D86C6F1E6018597F8530_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF050F121B008A9A3447A15F3C5F8A780BC44C8C62B2A4F6.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF050F121B008A9A3447A15F3C5F8A780BC44C8C62B2A4F6_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF33BBA53245DC11656AD674EDAC74459F773A394590234E.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF33BBA53245DC11656AD674EDAC74459F773A394590234E_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF3D6B912E3F1986C7A67E92219D38CCA5FC12F6DFC9D169.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF3D6B912E3F1986C7A67E92219D38CCA5FC12F6DFC9D169_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF416C96EF954FE1720C04968292DDE45BBEC2E4E5A74055.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF416C96EF954FE1720C04968292DDE45BBEC2E4E5A74055_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF51EAF10B09D34C5B5B3068CE83017279F3AFB5644E093F.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF51EAF10B09D34C5B5B3068CE83017279F3AFB5644E093F_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF51EAF10B09D34C7AE7C6543942C9000C78DF2C64EAF6A3.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF51EAF10B09D34C7AE7C6543942C9000C78DF2C64EAF6A3_label.nii.gz"
+        },
+        {
+            "image": "1_Train,Valid_Image/ZxFF823BD50CB342CE9DEDCD690E770B716F837D2CE9A22352.nii.gz",
+            "label": "2_Train,Valid_Mask/ZxFF823BD50CB342CE9DEDCD690E770B716F837D2CE9A22352_label.nii.gz"
+        }
+    ],
+}
+
+if __name__ == "__main__":
+    sim_dataroot = "data"
+
+    analyser = DataAnalyzer(sim_datalist, sim_dataroot)
+    datastat = analyser.get_all_case_stats()
+

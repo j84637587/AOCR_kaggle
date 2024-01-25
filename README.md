@@ -59,3 +59,20 @@ train
 -   _Loss 減少但 Accuracy 下降：_ 可能是因為模型正遭遇過度擬合，對訓練資料過於敏感，但在未見過的資料上表現不佳。
 
 -   _Precision 和 Recall 之間的權衡：_ 調整模型的閾值可能會影響 Precision 和 Recall 的平衡。增加閾值可能提高 Precision 但降低 Recall，反之亦然。
+
+
+### Error Solving
+
+
+`import torch` cause `Segmentation fault (core dumped)`
+
+or
+
+`ImportError: cannot import name '_set_torch_function_mode' from 'torch._C'`
+
+Run：
+```
+unset LD_LIBRARY_PATH
+```
+
+

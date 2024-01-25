@@ -1,19 +1,20 @@
 import time
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import pandas as pd
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from logging import Logger
 from progressmeter import Meter
+from torch.cuda.amp import GradScaler
+
+from warmup_scheduler import GradualWarmupScheduler
 
 import numpy as np
 import os
 import json
 from tqdm import tqdm
-from PIL import Image
 
 from postprocessing import postprocessing
 
@@ -36,7 +37,6 @@ class Trainer:
         lr: learning rate for optimizer.
         scheduler: scheduler for control learning rate.
         losses: dict for storing lists with losses for each phase.
-        jaccard_scores: dict for storing lists with jaccard scores for each phase.
         dice_scores: dict for storing lists with dice scores for each phase.
     """
 
@@ -53,6 +53,7 @@ class Trainer:
         log_path: str,
         log_freq: int = 10,
         display_plot: bool = True,
+        amp: bool = False,
     ):
         """Initialization."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -63,27 +64,50 @@ class Trainer:
         self.log_freq = log_freq
         self.display_plot = display_plot
         self.net = net.to(self.device)
+        self.amp = amp
         self.criterion = criterion
-        self.optimizer = Adam(self.net.parameters(), lr=lr)
-        self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode="min", patience=2, verbose=True
+        self.eps = 1e-5  # if amp else 1e-8
+        self.optimizer = Adam(
+            self.net.parameters(), lr=lr, eps=self.eps, weight_decay=1e-5
         )
+        # self.optimizer = SGD(net.parameters(), lr=lr, momentum=0.9, weight_decay=3e-5)
+        self.logger.info(f"=> Optimizer: {self.device}")
+        self.scaler = GradScaler() if amp else None
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer,
+            mode="min",
+            patience=30,
+            factor=0.5,
+            verbose=True,
+            eps=self.eps,
+        )
+        self.schedular_gws = GradualWarmupScheduler(
+            self.optimizer,
+            multiplier=10,
+            total_epoch=3,
+            after_scheduler=self.scheduler,
+        )
+
         self.accumulation_steps = accumulation_steps // batch_size
         self.phases = ["Train", "Valid"]
         self.num_epochs = num_epochs
         self.dataloaders = dataloaders
         self.best_loss = float("inf")
+        self.start_epoch = 0
         self.losses = {phase: [] for phase in self.phases}
         self.dice_scores = {phase: [] for phase in self.phases}
-        self.jaccard_scores = {phase: [] for phase in self.phases}
         self.f1_scores = {phase: [] for phase in self.phases}
-        self.aurocs_scores = {phase: [] for phase in self.phases}
+        self.TPs = {phase: [] for phase in self.phases}
+        self.FPs = {phase: [] for phase in self.phases}
+        self.TNs = {phase: [] for phase in self.phases}
+        self.FNs = {phase: [] for phase in self.phases}
 
     def _compute_loss_and_outputs(self, images: torch.Tensor, targets: torch.Tensor):
         images = images.to(self.device)
         targets = targets.to(self.device)
-        logits = self.net(images)
-        loss = self.criterion(logits, targets)
+        with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=self.amp):
+            logits = self.net(images)
+            loss = self.criterion(logits, targets)
         return loss, logits
 
     def _do_epoch(self, epoch: int, phase: str):
@@ -102,42 +126,58 @@ class Trainer:
 
             if phase == "Train":
                 loss.backward()
+
                 if (itr + 1) % self.accumulation_steps == 0:
-                    self.optimizer.step()
-                    self.optimizer.zero_grad()
+                    if not self.amp:
+                        self.optimizer.step()
+                        self.optimizer.zero_grad()
+                    else:
+                        self.scaler.step(self.optimizer)
+                        self.scaler.update()
+                        self.scaler.scale(loss).backward()
+                        self.optimizer.zero_grad()
 
             running_loss += loss.item()
-            meter.update(logits.detach().cpu(), targets.detach().cpu())  # 更新 dice, iou
+            meter.update(logits, targets)
             if itr % self.log_freq == 0:
                 self.logger.info(
                     f"{phase} epoch: {epoch} | batch: {itr}/{total_batches} | "
                     f"time: {(time.time() - start):.1f}s"
                 )
 
-                last_dice, last_iou, last_f1, last_auroc = meter.get_last_metrics()
+                (
+                    last_tp,
+                    last_fp,
+                    last_tn,
+                    last_fn,
+                    last_dice,
+                    last_f1,
+                ) = meter.get_last_metrics()
+
                 self.logger.info(
                     (
-                        f"lr: {self.optimizer.param_groups[0]['lr']:.4f} | "
-                        f"dice: {last_dice:.4f} ({np.mean(self.dice_scores[phase])}) | "
-                        f"iou: {last_iou:.4f} ({np.mean(self.jaccard_scores[phase])}) | "
-                        f"f1: {last_f1:.4f} ({np.mean(self.f1_scores[phase])}) | "
-                        f"auroc: {last_auroc:.4f}({np.mean(self.aurocs_scores[phase])}) "
+                        f"lr: {self.optimizer.param_groups[0]['lr']:.6f} | "
+                        f"running_loss: {running_loss:.6f} | "
+                        f"dice: {last_dice:.6f} ({np.mean(self.dice_scores[phase]):.6f}) | "
+                        f"f1: {last_f1:.6f} ({np.mean(self.f1_scores[phase]):.6f}) | "
+                        f"TP: {last_tp} | "
+                        f"FP: {last_fp} | "
+                        f"TN: {last_tn} | "
+                        f"FN: {last_fn} | "
                     )
                 )
 
         epoch_loss = (running_loss * self.accumulation_steps) / total_batches
-        epoch_dice, epoch_iou, epoch_f1, epoch_auroc = meter.get_metrics()
+        epoch_dice, epoch_f1 = meter.get_metrics()
 
         self.losses[phase].append(epoch_loss)
         self.dice_scores[phase].append(epoch_dice)
-        self.jaccard_scores[phase].append(epoch_iou)
         self.f1_scores[phase].append(epoch_f1)
-        self.aurocs_scores[phase].append(epoch_auroc)
 
         return epoch_loss
 
     def run(self, validate: bool = False):
-        for epoch in range(self.num_epochs):
+        for epoch in range(self.start_epoch, self.num_epochs):
             # 訓練
             if not validate:
                 self._do_epoch(epoch, "Train")
@@ -145,12 +185,12 @@ class Trainer:
             # 驗證
             with torch.no_grad():
                 val_loss = self._do_epoch(epoch, "Valid")
-                self.scheduler.step(val_loss)
+                self.scheduler.step(val_loss)  # 查看是否需要調整 lr
+                # self.schedular_gws.step(val_loss)
 
             if not validate:
                 # 製圖
-                if self.display_plot:
-                    self._plot_train_history()
+                self._plot_train_history()
 
                 # 以 loss 保存最佳模型
                 if val_loss < self.best_loss:
@@ -159,12 +199,11 @@ class Trainer:
 
                 self._save_train_history()
             else:
-                dice_mean, iou_mean, f1_mean, auroc_mean = self.get_mean_metrics()
+                dice_mean, f1_mean = self.get_mean_metrics()
                 self.logger.info(
+                    f"\nloss:\t{val_loss:.2f}\n"
                     f"\ndice:\t{dice_mean:.2f}\n"
-                    f"iou:\t{iou_mean:.2f}\n"
                     f"f1:\t{f1_mean:.2f}\n"
-                    f"auroc:\t{auroc_mean:.2f}"
                 )
 
     def get_mean_metrics(self):
@@ -173,23 +212,13 @@ class Trainer:
             if len(self.dice_scores["Valid"]) > 0
             else 0.0
         )
-        iou_mean = (
-            np.mean(self.jaccard_scores["Valid"])
-            if len(self.jaccard_scores["Valid"]) > 0
-            else 0.0
-        )
         f1_mean = (
             np.mean(self.f1_scores["Valid"])
             if len(self.f1_scores["Valid"]) > 0
             else 0.0
         )
-        auroc_mean = (
-            np.mean(self.aurocs_scores["Valid"])
-            if len(self.aurocs_scores["Valid"]) > 0
-            else 0.0
-        )
 
-        return dice_mean, iou_mean, f1_mean, auroc_mean
+        return dice_mean, f1_mean
 
     def test_submit(self, threshold=0.7):
         self.net.eval()
@@ -219,7 +248,6 @@ class Trainer:
                     rlt[s:e] = pred
 
                     # save np array as a image
-
                     scan_level_cls = "0" if (np.sum(pred) == 0) else "1"
 
                     submit = pd.concat(
@@ -247,7 +275,9 @@ class Trainer:
 
     def _save_weights(self, epoch: int, val_loss):
         filename = os.path.join(self.log_path, "model_best.pth.tar")
-        self.logger.info(f"\n{'#'*20}\nSaved new checkpoint\n{'#'*20}\n")
+        self.logger.info(
+            f"\n{'#'*20}\nSaved new checkpoint best_loss: {val_loss}\n{'#'*20}\n"
+        )
         torch.save(
             {
                 "epoch": epoch + 1,
@@ -263,9 +293,7 @@ class Trainer:
         data = [
             self.losses,
             self.dice_scores,
-            self.jaccard_scores,
             self.f1_scores,
-            self.aurocs_scores,
         ]
         colors = ["deepskyblue", "crimson"]
         labels = [
@@ -278,20 +306,12 @@ class Trainer:
             val dice score {self.dice_scores['Valid'][-1]:.4f}
             """,
             f"""
-            train jaccard score {self.jaccard_scores['Train'][-1]:.4f}
-            val jaccard score {self.jaccard_scores['Valid'][-1]:.4f}
-            """,
-            f"""
             train f1 score {self.f1_scores['Train'][-1]:.4f}
             val f1 score {self.f1_scores['Valid'][-1]:.4f}
             """,
-            f"""
-            train auroc score {self.aurocs_scores['Train'][-1]:.4f}
-            val auroc score {self.aurocs_scores['Valid'][-1]:.4f}
-            """,
         ]
 
-        fig, axes = plt.subplots(3, 2, figsize=(12, 15))
+        fig, axes = plt.subplots(2, 2, figsize=(12, 15))
         for i, ax in enumerate(axes.flat):
             if i >= len(data):
                 ax.axis("off")
@@ -308,9 +328,7 @@ class Trainer:
         history = {
             "loss": self.losses,
             "dice": self.dice_scores,
-            "jaccard": self.jaccard_scores,
             "f1": self.f1_scores,
-            "auroc": self.aurocs_scores,
         }
         json.dump(str(history), open(os.path.join(self.log_path, "history.json"), "w"))
 
@@ -320,9 +338,22 @@ class Trainer:
         checkpoint = torch.load(checkpoint_path)
         self.net.load_state_dict(checkpoint["state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer"])
+        self.start_epoch = checkpoint["epoch"]
+
+        history_path = os.path.join(self.log_path, "history.json")
+        if os.path.isfile(history_path):
+            with open(history_path, "r") as file:
+                loaded_data = json.load(file)
+
+                self.losses = loaded_data["loss"]
+                self.dice_scores = loaded_data["dice"]
+                self.f1_scores = loaded_data["f1"]
+        else:
+            self.logger.error("=> no history found")
+
         self.logger.info("=> pretrained model loaded successfully")
         self.logger.info(f"=> best train/valid loss: {checkpoint['loss']}")
-        self.logger.info(f"=> have trained for {checkpoint['epoch']} epochs")
+        self.logger.info(f"=> have trained for {self.start_epoch} epochs")
 
     def _save_train_history(self):
         """writing model weights and training logs to files."""
@@ -334,11 +365,9 @@ class Trainer:
         logs_ = [
             self.losses,
             self.dice_scores,
-            self.jaccard_scores,
             self.f1_scores,
-            self.aurocs_scores,
         ]
-        log_names_ = ["_loss", "_dice", "_jaccard", "_f1", "_auroc"]
+        log_names_ = ["_loss", "_dice", "_f1"]
         logs = [logs_[i][key] for i in list(range(len(logs_))) for key in logs_[i]]
         log_names = [
             key + log_names_[i] for i in list(range(len(logs_))) for key in logs_[i]

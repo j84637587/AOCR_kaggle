@@ -13,15 +13,19 @@ import torch.nn as nn
 
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+import torch.nn.functional as F
 
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import KFold
 
 from models.UNet3d import UNet3d
+from models.R2UNet3D import Net
+from models.UNETR import UNETR
 from datasets.mask_dataset import build_dataloader
 
 import nibabel as nib
 
-# from monai.networks.nets import SwinUNETR
+import segmentation_models_pytorch as smp
 import monai
 from monai import data, transforms
 from compose.LoadPreprocessedImaged import LoadPreprocessedImaged
@@ -159,8 +163,9 @@ class BCEDiceLoss(nn.Module):
         ), f"Error the shape of logits {logits.shape} != shape of targets{targets.shape}"
         dice_loss = self.dice(logits, targets)
         bce_loss = self.bce(logits, targets.float())
+        l_cross = F.cross_entropy(logits, targets.float(), reduction="none")
 
-        return bce_loss + dice_loss
+        return bce_loss * 0.2 + dice_loss * 0.8
 
 
 # helper functions for testing.
@@ -346,7 +351,7 @@ class Trainer:
         self.optimizer = Adam(self.net.parameters(), lr=lr)
         # self.optimizer = monai.optimizers.Novograd(self.net.parameters(), lr=lr)
         self.scheduler = ReduceLROnPlateau(
-            self.optimizer, mode="min", patience=2, verbose=True
+            self.optimizer, mode="min", patience=3, verbose=True, eps=1e-6
         )
         self.accumulation_steps = accumulation_steps // batch_size
         self.phases = ["Train", "Valid"]
@@ -366,7 +371,7 @@ class Trainer:
         loss = self.criterion(logits, targets)
         return loss, logits
 
-    def _do_epoch(self, epoch: int, phase: str):
+    def _do_epoch(self, epoch: int, phase: str, dataloader):
         # print learning rate
         for param_group in self.optimizer.param_groups:
             self.logger.info(f"epoch: {epoch} | lr: {param_group['lr']}")
@@ -374,12 +379,16 @@ class Trainer:
 
         self.net.train() if phase == "Train" else self.net.eval()
         meter = Meter()
-        dataloader = self.dataloaders[phase]
+
+        # dataloader = self.dataloaders[phase]
         total_batches = len(dataloader)
+
         running_loss = 0.0
         self.optimizer.zero_grad()
-        # for itr, batch_data in enumerate(dataloader):
+
         for itr, (id, images, targets) in enumerate(dataloader):
+            id, images, targets = next(iter(dataloader))
+
             images = images.permute(0, 1, 4, 2, 3)
             targets = targets.permute(0, 1, 4, 2, 3)
 
@@ -414,10 +423,28 @@ class Trainer:
         return epoch_loss
 
     def run(self):
+        # kf = KFold(n_splits=5, shuffle=True, random_state=42)
+        # for fold, (train_index, val_index) in enumerate(
+        #     kf.split(self.dataloaders["ALL"].dataset)
+        # ):
+        #     train_dataset = torch.utils.data.Subset(
+        #         self.dataloaders["ALL"].dataset, train_index
+        #     )
+        #     val_dataset = torch.utils.data.Subset(
+        #         self.dataloaders["ALL"].dataset, val_index
+        #     )
+
+        #     train_dataloader = torch.utils.data.DataLoader(
+        #         train_dataset, batch_size=4, shuffle=True
+        #     )
+        #     val_dataloader = torch.utils.data.DataLoader(
+        #         val_dataset, batch_size=4, shuffle=False
+        #     )
+
         for epoch in range(self.num_epochs):
-            self._do_epoch(epoch, "Train")
+            train_loss = self._do_epoch(epoch, "Train", self.dataloaders["Train"])
             with torch.no_grad():
-                val_loss = self._do_epoch(epoch, "Valid")
+                val_loss = self._do_epoch(epoch, "Valid", self.dataloaders["Valid"])
                 self.scheduler.step(val_loss)
 
             if self.display_plot:
@@ -427,9 +454,12 @@ class Trainer:
                 self.logger.info(f"\n{'#'*20}\nSaved new checkpoint\n{'#'*20}\n")
                 self.best_loss = val_loss
                 torch.save(
-                    self.net.state_dict(), os.path.join(self.log_path, "best_model.pth")
+                    self.net.state_dict(),
+                    os.path.join(self.log_path, "best_model.pth"),
                 )
             self._save_train_history()
+
+        # print(f"Fold {fold + 1} - Train Loss: {train_loss}, Valid Loss: {val_loss}")
 
     def test_submit(
         self,
@@ -479,17 +509,23 @@ class Trainer:
                 binary_predictions = (outputs > threshold) * 1
 
                 for id_itr, id in enumerate(ids):
+                    image = images[id_itr]
+                    logger.info(f"Processing {id}")
+
                     num_slice = num_slices[id_itr]
                     pred = binary_predictions[id_itr]
+                    logger.info(f"pred {np.any(pred, axis=(0, 1, 2))}")
 
-                    post_processed = postprocessing(pred)
+                    post_processed = postprocessing(pred, image, logger=logger)
 
                     pred = np.any(post_processed, axis=(0, 1, 2))
+                    logger.info(f"post_processed {pred}")
                     if np.sum(pred) < filter_num_slice:
                         pred = np.zeros_like(pred)
 
                     if do_connected_ones:
                         pred = connected_ones(pred)
+                    logger.info(f"do_connected_ones {pred}")
 
                     # if find_longest_sequence(pred) < 2:
                     #     pred = np.zeros_like(pred)
@@ -497,7 +533,7 @@ class Trainer:
                     s = start[id_itr]
                     e = end[id_itr]
 
-                    if valid and gen_nii:
+                    if gen_nii:
                         mask = np.zeros((512, 512, num_slice))
                         mask[59:291, 185:361, s:e] = post_processed
                         mask = nib.Nifti1Image(
@@ -684,31 +720,32 @@ def create_logger():
 if __name__ == "__main__":
     log_path, logger = create_logger()
 
-    batch_size = 2
+    batch_size = 4
     accumulation_steps = 8
     workers = 8
     csv_file_path = "data/TrainValid_split.csv"
+    csv_extra_file_path = "data/TrainValid_split_extra.csv"
     test_file_path = "data/sample_submission.csv"
-    root_directory = "data/preprocess/232x176x50_v20"
-    # root_directory = "data/preprocess/232x176x70_v1"  # unet3d
+    root_directory = "data/preprocess/232x176x50_v5"
 
     logger.info(f"=> batch_size: {batch_size}")
     logger.info(f"=> accumulation_steps: {accumulation_steps}")
     logger.info(f"=> root_directory: {root_directory}")
 
-    # train_loader, val_loader = get_loader(
-    #     root_directory, batch_size=batch_size, train_csv=csv_file_path
-    # )
-
     dataloaders = {
-        # "Train": train_loader,
-        # "Valid": val_loader,
         "Train": build_dataloader(
             csv_file_path,
             root_directory,
             batch_size=batch_size,
             num_workers=workers,
             phase="Train",
+        ),
+        "ALL": build_dataloader(
+            csv_extra_file_path,
+            root_directory,
+            batch_size=batch_size,
+            num_workers=workers,
+            phase="ALL",
         ),
         "Valid": build_dataloader(
             csv_file_path,
@@ -733,34 +770,16 @@ if __name__ == "__main__":
         ),
     }
     net = UNet3d(in_channels=1, n_classes=1, n_channels=32).to("cuda")
-    # net = monai.networks.nets.UNet(
-    #     spatial_dims=3,
-    #     in_channels=1,
-    #     out_channels=1,
-    #     channels=(16, 32),
-    #     strides=(1, 1, 1),
-    #     num_res_units=4,
+    # aux_params = dict(
+    #     pooling="avg",  # one of 'avg', 'max'
+    #     dropout=0.5,  # dropout ratio, default is None
+    #     activation="sigmoid",  # activation function, default is None
+    #     classes=1,  # define number of output labels
     # )
-    # net = monai.networks.nets.AutoEncoder(
-    #     spatial_dims=3,
-    #     in_channels=1,
-    #     out_channels=1,
-    #     channels=(4,),
-    #     strides=(2,),
-    #     inter_channels=(8, 8, 8),
-    #     inter_dilations=(1, 2, 4),
-    #     num_inter_units=2,
-    # )
-    # net = monai.networks.nets.RegUNet(
-    #     spatial_dims=3,
-    #     in_channels=1,
-    #     num_channel_initial=1,
-    #     depth=4,
-    #     out_channels=1,
-    #     channels=(16, 32),
-    #     strides=(1, 1, 1),
-    #     num_res_units=4,
-    # )
+    # net = smp.Unet("resnet34", in_channels=1, classes=1, aux_params=aux_params)
+    # net = UNETR(input_dim=1, output_dim=1)
+
+    # net = Net().to("cuda")  # in_channels=1, out_channels=1
     logger.info(f"=> model: {net}")
     net = torch.nn.DataParallel(net).cuda()
 
@@ -768,19 +787,26 @@ if __name__ == "__main__":
         net=net,
         dataloaders=dataloaders,
         criterion=BCEDiceLoss(),
-        lr=5e-4,
+        # criterion=monai.losses.TverskyLoss(alpha=0.3, beta=0.7),
+        lr=1e-5,  # 2e-4, #
         accumulation_steps=accumulation_steps,
         batch_size=batch_size,
         fold=0,
-        num_epochs=500,
+        num_epochs=10,
         logger=logger,
         log_path=log_path,
     )
-    # trainer.load_pretrain_model("logs/2023_12_31_8_unet3d_best_v2_bad/model_best.pth")
     # trainer.load_pretrain_model(
-    #     "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_15_10/best_model.pth"
+    #     "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2023_12_31_8_unet3d_best_v2_bad/model_best.pth"
     # )
-    trainer.run()
-    # trainer.test_submit(
-    #     valid=True, threshold=0.8, filter_num_slice=3, do_connected_ones=False
-    # )
+    trainer.load_pretrain_model(
+        "/mnt/data/M11217002/AOCR_Tung_MIPL/logs/2024_01_24_10/best_model.pth"
+    )
+    # trainer.run()
+    trainer.test_submit(
+        valid=True,
+        threshold=0.7,
+        filter_num_slice=3,
+        do_connected_ones=True,
+        gen_nii=False,
+    )
